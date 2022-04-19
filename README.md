@@ -22,6 +22,7 @@ Creatures are initially created with a specific number of synapses between these
 
 Each creature holds the information of its genes (number of synapses) and has a different color based on this information, so the genetic difference is visible on the simulation. This information is stored in a numpy array as below:
 
+### Genetic structure of creatures
 ```
 [source_type][from_neuron_id][destination_type][to_neuron_id][synapse_weight]
 
@@ -35,6 +36,12 @@ to_neuron_id = the unique id of the destination neuron
 
 synapse_weight = the weight of the connection
 ```
+
+### Oscillator of creatures
+
+Creatures are using a synthetic internal oscillator which influences their sensory and action outputs. The underlying formula is a simple sinus wave to primitivly replicate a circadian rythm.
+
+![sinus-wave-oscillator](oscillator.png)
 
 ### Additional information on neuron math
 

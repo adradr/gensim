@@ -3,6 +3,8 @@ import logging
 import uuid
 import hashlib
 import numpy as np
+from enum import Enum
+
 from gensim.Neurons import Neuron
 
 log = logging.getLogger(__name__)
@@ -40,6 +42,52 @@ class Creature:
         # Location data
         self.X = 0
         self.Y = 0
+        self.last_dir = Directions.NULL
+        # Setting oscillator with a random init frequency
+        self.oscillator = Oscillator(np.random.uniform(1, 5))
+
+
+class Oscillator:
+    def get_value_at_step(self, step):
+        return self.signal[step]
+
+    def set_period(self, freq: float):
+        assert 5 >= freq >= 1, "Use value between 5 and 1"
+        self.freq = freq
+        time = np.arange(0, 100, 0.1)
+        signal = np.sin(time / self.freq) + 1
+        self.signal = signal
+
+    def __init__(self, freq: float):
+        self.freq = freq
+        self.set_period(self.freq)
+
+
+class Directions(Enum):
+    EAST = [1, 0]
+    WEST = [-1, 0]
+    NORTH = [0, 1]
+    SOUTH = [0, -1]
+    NULL = [0, 0]
+
+# [] need to define a method so creatures cannot move out of boundaries
+
+
+class Action:
+    def __init__(self, creature: Creature):
+        self.creature = creature
+
+    def move(self, direction):
+        loc = [self.creature.X, self.creature.Y]
+        new_loc = [x + Directions[direction].value[idx]
+                   for idx, x in enumerate(loc)]
+        [self.creature.X, self.creature.Y] = new_loc
+
+    def set_oscillator(self, period):
+        pass
+
+    def emit(self):
+        pass
 
 
 class Gene:
