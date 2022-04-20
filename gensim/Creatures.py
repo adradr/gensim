@@ -110,11 +110,11 @@ class Gene:
         # Creating neurons
         source_type = np.random.randint(2)
         from_neuron_id = np.random.randint(
-            from_neuron_len) if source_type == 0 else np.random.randint(max_sensory_len+1, from_neuron_len+1)
+            max_sensory_len) if source_type == 0 else np.random.randint(max_sensory_len+1, from_neuron_len+1)
 
         destination_type = np.random.randint(2)
         to_neuron_id = np.random.randint(
-            to_neuron_len) if destination_type == 0 else np.random.randint(max_action_len+1, to_neuron_len+1)
+            max_action_len) if destination_type == 0 else np.random.randint(max_action_len+1, to_neuron_len+1)
 
         synapse_weight = np.random.uniform(low=-5, high=5)
 
