@@ -58,25 +58,25 @@ Each sensory neuron outputs a float number (-1,+1)
 - action neuron to interact in the enviroment
 
 ### Sensory Neurons
-- Sx - location on the X axis
-- Sy - location on the Y axis
-- Dn - distance from north
-- Ds - distance from south
-- Dw - distance from west
-- De - distance from east
-- De - density around: how many individuals are around (8 pixels)
-- Va - view ahead forward: is there an individual in the next 3 pixels
-- Ph - pheromons detected around (5x5 pixels)
-- Se - sex
-- Ag - age
-- Os - internal oscillator signal
+1. Sx - location on the X axis
+2. Sy - location on the Y axis
+3. Dn - distance from north
+4. Ds - distance from south
+5. Dw - distance from west
+6. De - distance from east
+7. Da - density around: how many individuals are around (8 pixels)
+8. Va - view ahead forward: is there an individual in the next 3 pixels
+9. Ph - pheromons detected around (5x5 pixels)
+10. Se - sex
+11. Ag - age
+12. Os - internal oscillator signal
 
 ### Action Neurons
-- Mf - move forward (previous direction)
-- Mrv - move reverse/backwards
-- Mrn - move random
-- Mlr - move left/right
-- Mew - move east/west
-- Mns - move north/south
-- So - set oscillator period
-- Ep - emit pheromone
+1. Mf - move forward (previous direction)
+2. Mrv - move reverse/backwards
+3. Mrn - move random
+4. Mlr - move left/right
+5. Mew - move east/west
+6. Mns - move north/south
+7. So - set oscillator period
+8. Ep - emit pheromone
