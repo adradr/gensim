@@ -5,20 +5,16 @@ log = logging.getLogger(__name__)
 
 class Neuron:
     def list_neurons(self):
-        print(self.sensory_neuron_list)
-        print(self.action_neuron_list)
+        print(self.sensory_neuron_types)
+        print(self.action_neuron_types)
 
     def list_sensory_size(self):
-        return len(self.sensory_neuron_list)
+        return len(self.sensory_neuron_types)
 
     def list_action_size(self):
-        return len(self.action_neuron_list)
+        return len(self.action_neuron_types)
 
     def __init__(self):
-        self.sensory_neuron_list = ["Sx", "Sy", "Dn", "Ds",
-                                    "Dw", "De", "De", "Va", "Ph", "Se", "Ag", "Os"]
-        self.action_neuron_list = ["Mf", "Mrv",
-                                   "Mrn", "Mlr", "Mew", "Mns", "So", "Ep"]
         self.sensory_neuron_types = {
             'Sx':   0,
             'Sy':   0,
