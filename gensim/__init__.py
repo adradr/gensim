@@ -1,1 +1,1 @@
-__all__ = ["Creatures", "Enviroment", "Neurons"]
+__all__ = ["Creatures", "Enviroment"]

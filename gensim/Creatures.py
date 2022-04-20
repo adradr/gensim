@@ -2,6 +2,7 @@ import sys
 import logging
 import uuid
 import hashlib
+import graphviz
 import numpy as np
 from enum import Enum
 
@@ -21,7 +22,17 @@ class Creature:
     def generate_synapse():
         pass
 
-    def get_gene_hash(self):
+    def create_graph_img(self):
+        genome_hash = self.get_genome_hash()
+        dot = graphviz.Digraph(comment=genome_hash)
+        for idx, i in enumerate(self.neuron_array):
+            id_1 = idx + '_1'
+            id_2 = idx + '_2'
+            dot.node(id_1, 'King Arthur', style='filled', fillcolor='#40e0d0')
+            dot.node(id_2, 'King Arthur', style='filled', fillcolor='#40e0d0')
+            dot.edges(['AB'])
+
+    def get_genome_hash(self):
         hash = hashlib.sha1(self.neuron_array).hexdigest()
         return str(hash)[:6]
 
@@ -39,7 +50,6 @@ class Creature:
             neuron_array = np.vstack((neuron_array, gene.neuron))
             gene_array.append(gene)
         # Saving arrays
-        neuron_array = np.flip(neuron_array, axis=0)
         self.neuron_array = neuron_array[1:]  # Slicing off first empty neuron
         self.gene_array = gene_array
         self.id = uuid.uuid4()
@@ -102,6 +112,10 @@ class GeneType(Enum):
 
 
 class Gene:
+    def get_gene_hash(self):
+        hash = hashlib.sha1(self.neuron).hexdigest()
+        return str(hash)[:6]
+
     def update_input(self, inputs: np.array):
         self.inputs = inputs
 
@@ -110,11 +124,10 @@ class Gene:
 
     def generate_gene(self, neuron_type: GeneType, num_int_neuron: int):
         # [source_type][from_neuron_id][destination_type][to_neuron_id][synapse_weight]
-        neuron = Neuron()
 
         # Calculate max lenghts
-        max_sensory_len = neuron.list_sensory_size()
-        max_action_len = neuron.list_action_size()
+        max_sensory_len = len(SensoryNeurons)
+        max_action_len = len(ActionNeurons)
         from_neuron_len = max_sensory_len + num_int_neuron
         to_neuron_len = max_action_len + num_int_neuron
 
@@ -149,3 +162,30 @@ class Gene:
         self.neuron = self.generate_gene(neuron_type, num_int_neuron)
         self.neuron_shape = self.neuron.shape[0]
         self.inputs = np.empty(self.neuron_shape, dtype=object)
+        self.gene_hash = self.get_gene_hash()
+
+
+class SensoryNeurons(Enum):
+    Sx = 1
+    Sy = 2
+    Dn = 3
+    Ds = 4
+    Dw = 5
+    De = 6
+    Da = 7
+    Va = 8
+    Ph = 9
+    Se = 10
+    Ag = 11
+    Os = 12
+
+
+class ActionNeurons(Enum):
+    Mf = 1
+    Mrv = 2
+    Mrn = 3
+    Mlr = 4
+    Mew = 5
+    Mns = 6
+    So = 7
+    Ep = 8
