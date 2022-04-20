@@ -6,8 +6,6 @@ import graphviz
 import numpy as np
 from enum import Enum
 
-from gensim.Neurons import Neuron
-
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
@@ -26,11 +24,24 @@ class Creature:
         genome_hash = self.get_genome_hash()
         dot = graphviz.Digraph(comment=genome_hash)
         for idx, i in enumerate(self.neuron_array):
-            id_1 = idx + '_1'
-            id_2 = idx + '_2'
-            dot.node(id_1, 'King Arthur', style='filled', fillcolor='#40e0d0')
-            dot.node(id_2, 'King Arthur', style='filled', fillcolor='#40e0d0')
-            dot.edges(['AB'])
+            # Node values
+            a = list(SensoryNeurons)[np.int(i[1])
+                                     ].name if i[0] == 0 else 'N' + str(np.int(i[1]))
+            b = list(ActionNeurons)[np.int(i[3])
+                                    ].name if i[2] == 0 else 'N' + str(np.int(i[3]))
+            # Orange if sensory, gray if internal
+            id_1_color = "#FFA500" if i[0] == 0 else "#a5a0a8"
+            # Blue if action, gray if internal
+            id_2_color = "#b17cd6" if i[2] == 0 else "#a5a0a8"
+
+            dot.node(a, style='filled', fillcolor=id_1_color)
+            dot.node(b, style='filled', fillcolor=id_2_color)
+            rounded_weight = round(i[4], 2)
+            edge_color = "#2117b0" if rounded_weight > 0 else "#b01726"
+            dot.edge(a, b, str(rounded_weight), {
+                     "penwidth": str(abs(rounded_weight+2)), "color": edge_color})
+            # dot.unflatten(stagger=5)
+        dot.render(f"{genome_hash}", view=True, format="png")
 
     def get_genome_hash(self):
         hash = hashlib.sha1(self.neuron_array).hexdigest()

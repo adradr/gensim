@@ -14,6 +14,8 @@ The enviroment is made up of an X times Y **pixel grid**. Time is divided for **
 
  Creatures can move around in the enviroment based on their action neuron outputs. A pixel can only host a single creature on it, so creatures can be blocking each other.
 
+ ![enviroment](img/result.png)
+
 ## Creatures
 
 Each creature is made up of neurons. Neurons can help the creature to sense and interact with the enviroment. Synapses make connections between between sensory and action neurons and optionally route through internal neurons.
@@ -37,11 +39,16 @@ to_neuron_id = the unique id of the destination neuron
 synapse_weight = the weight of the connection
 ```
 
+### Example of a genome structure
+
+![830aa9](img/830aa9.png)
+
+
 ### Oscillator of creatures
 
 Creatures are using a synthetic internal oscillator which influences their sensory and action outputs. The underlying formula is a simple sinus wave to primitivly replicate a circadian rythm.
 
-![sinus-wave-oscillator](oscillator.png)
+![sinus-wave-oscillator](img/oscillator.png)
 
 ### Additional information on neuron math
 
