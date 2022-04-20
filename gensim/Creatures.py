@@ -70,8 +70,6 @@ class Directions(Enum):
     SOUTH = [0, -1]
     NULL = [0, 0]
 
-# [] need to define a method so creatures cannot move out of boundaries
-
 
 class Action:
     def __init__(self, creature: Creature):
@@ -81,6 +79,8 @@ class Action:
         loc = [self.creature.X, self.creature.Y]
         new_loc = [x + Directions[direction].value[idx]
                    for idx, x in enumerate(loc)]
+        # Check so neither coordinates cannot go below zero, else set to zero
+        new_loc = [0 if x < 0 else x for x in new_loc]
         [self.creature.X, self.creature.Y] = new_loc
 
     def set_oscillator(self, period):
@@ -91,22 +91,39 @@ class Action:
 
 
 class Gene:
-    def generate_gene(self, from_neuron_len, to_neuron_len):
-        source_type = np.random.randint(2)
-        destination_type = np.random.randint(2)
-        from_neuron_id = np.random.randint(from_neuron_len)
-        to_neuron_id = np.random.randint(to_neuron_len)
-        synapse_weight = np.random.uniform(low=-5, high=5)
-        array = np.array([source_type, destination_type,
-                          from_neuron_id, to_neuron_id, synapse_weight])
-        return array
+    def update_input(self, inputs: np.array):
+        self.inputs = inputs
 
-    def __init__(self, num_int_neuron: int):
+    def calculate_synapse(self):
+        pass
+
+    def generate_gene(self, num_int_neuron: int):
         # [source_type][from_neuron_id][destination_type][to_neuron_id][synapse_weight]
         neuron = Neuron()
+
+        # Calculate max lenghts
         max_sensory_len = neuron.list_sensory_size()
         max_action_len = neuron.list_action_size()
         from_neuron_len = max_sensory_len + num_int_neuron
         to_neuron_len = max_action_len + num_int_neuron
 
-        self.neuron = self.generate_gene(from_neuron_len, to_neuron_len)
+        # Creating neurons
+        source_type = np.random.randint(2)
+        from_neuron_id = np.random.randint(
+            from_neuron_len) if source_type == 0 else np.random.randint(max_sensory_len+1, from_neuron_len+1)
+
+        destination_type = np.random.randint(2)
+        to_neuron_id = np.random.randint(
+            to_neuron_len) if destination_type == 0 else np.random.randint(max_action_len+1, to_neuron_len+1)
+
+        synapse_weight = np.random.uniform(low=-5, high=5)
+
+        array = np.array([source_type, from_neuron_id,
+                         destination_type, to_neuron_id, synapse_weight])
+        return array
+
+    def __init__(self, num_int_neuron: int):
+
+        self.neuron = self.generate_gene(num_int_neuron)
+        self.neuron_shape = self.neuron.shape[0]
+        self.inputs = np.empty(self.neuron_shape, dtype=object)
