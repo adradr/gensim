@@ -30,11 +30,17 @@ class Creature:
         neuron_array = np.array([0, 0, 0, 0, 0])
         gene_array = []
         for i in range(gene_size):
-            gene = Gene(num_int_neuron=num_int_neuron)
+            gene = Gene(neuron_type=GeneType.NORMAL)
+            neuron_array = np.vstack((neuron_array, gene.neuron))
+            gene_array.append(gene)
+        for i in range(num_int_neuron):
+            gene = Gene(neuron_type=GeneType.INTERNAL,
+                        num_int_neuron=num_int_neuron)
             neuron_array = np.vstack((neuron_array, gene.neuron))
             gene_array.append(gene)
         # Saving arrays
-        self.neuron_array = neuron_array[1:]
+        neuron_array = np.flip(neuron_array, axis=0)
+        self.neuron_array = neuron_array[1:]  # Slicing off first empty neuron
         self.gene_array = gene_array
         self.id = uuid.uuid4()
         log.info(
@@ -90,6 +96,11 @@ class Action:
         pass
 
 
+class GeneType(Enum):
+    INTERNAL = 1
+    NORMAL = 0
+
+
 class Gene:
     def update_input(self, inputs: np.array):
         self.inputs = inputs
@@ -97,7 +108,7 @@ class Gene:
     def calculate_synapse(self):
         pass
 
-    def generate_gene(self, num_int_neuron: int):
+    def generate_gene(self, neuron_type: GeneType, num_int_neuron: int):
         # [source_type][from_neuron_id][destination_type][to_neuron_id][synapse_weight]
         neuron = Neuron()
 
@@ -108,22 +119,33 @@ class Gene:
         to_neuron_len = max_action_len + num_int_neuron
 
         # Creating neurons
-        source_type = np.random.randint(2)
-        from_neuron_id = np.random.randint(
-            max_sensory_len) if source_type == 0 else np.random.randint(max_sensory_len+1, from_neuron_len+1)
+        if neuron_type == GeneType.NORMAL:
+            source_type = 0
+            from_neuron_id = np.random.randint(max_sensory_len)
 
-        destination_type = np.random.randint(2)
-        to_neuron_id = np.random.randint(
-            max_action_len) if destination_type == 0 else np.random.randint(max_action_len+1, to_neuron_len+1)
+            destination_type = np.random.randint(2)
+            to_neuron_id = np.random.randint(
+                max_action_len) if destination_type == 0 else np.random.randint(max_action_len+1)
 
+        if neuron_type == GeneType.INTERNAL:
+            source_type = 1
+            from_neuron_id = np.random.randint(
+                max_sensory_len+1, from_neuron_len+1)
+
+            destination_type = np.random.randint(2)
+            to_neuron_id = np.random.randint(max_action_len) if destination_type == 0 else np.random.randint(
+                max_action_len+1, to_neuron_len+1)
+
+        # Setting synapse weight between 1 and 5
         synapse_weight = np.random.uniform(low=-5, high=5)
 
         array = np.array([source_type, from_neuron_id,
                          destination_type, to_neuron_id, synapse_weight])
+
         return array
 
-    def __init__(self, num_int_neuron: int):
+    def __init__(self, neuron_type: GeneType, num_int_neuron=0):
 
-        self.neuron = self.generate_gene(num_int_neuron)
+        self.neuron = self.generate_gene(neuron_type, num_int_neuron)
         self.neuron_shape = self.neuron.shape[0]
         self.inputs = np.empty(self.neuron_shape, dtype=object)
