@@ -1,4 +1,5 @@
 import sys
+import os
 import logging
 import uuid
 import hashlib
@@ -41,13 +42,16 @@ class Creature:
             dot.edge(a, b, str(rounded_weight), {
                      "penwidth": str(abs(rounded_weight+2)), "color": edge_color})
             # dot.unflatten(stagger=5)
-        dot.render(f"{genome_hash}", view=True, format="png")
+        save_path = f"{self.sim_id}/{genome_hash}"
+        dot.render(save_path, view=True, format="png")
+        # Remove dotfile
+        os.remove(save_path)
 
     def get_genome_hash(self):
         hash = hashlib.sha1(self.neuron_array).hexdigest()
         return str(hash)[:6]
 
-    def __init__(self, gene_size: int, num_int_neuron: int):
+    def __init__(self, simulation_id: str, gene_size: int, num_int_neuron: int):
         # Generate gene pool for Creature
         neuron_array = np.array([0, 0, 0, 0, 0])
         gene_array = []
@@ -64,6 +68,7 @@ class Creature:
         self.neuron_array = neuron_array[1:]  # Slicing off first empty neuron
         self.gene_array = gene_array
         self.id = uuid.uuid4()
+        self.sim_id = simulation_id
         log.info(
             f"Creature {str(self.id)[:8]} neuron array:\n{self.neuron_array}")
         # Location data

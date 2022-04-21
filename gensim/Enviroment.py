@@ -1,3 +1,5 @@
+import os
+import datetime
 import logging
 from operator import ge
 import uuid
@@ -44,8 +46,8 @@ class Enviroment:
         grid = generate_grid_locations(self.X)
         self.random_locations = sample_grid_locations(grid, population_size)
 
-    def sim_step(self):
-        pass
+    def step(self):
+        self.step += 1
 
     def eval_round(self):
         pass
@@ -64,7 +66,7 @@ class Enviroment:
         # Fill with creatures painted black
         #rand_samples = np.random.randint(0, 100, size=(10, 2))
         for i in self.creature_array:
-            image[i.X, i.Y] = hex_to_rgb(i.get_gene_hash())
+            image[i.X, i.Y] = hex_to_rgb(i.get_genome_hash())
         # Save image as result.png
         cv2.imwrite("result.png", image)
 
@@ -84,6 +86,7 @@ class Enviroment:
         self.X = size
         self.Y = size
         self.num_steps = num_steps
+        self.step = 0
 
         # Init population
         self.population_size = population_size
@@ -94,10 +97,18 @@ class Enviroment:
         self.id = uuid.uuid4()
         self.round = 0
 
+        # Create folder for simulation
+        now = datetime.datetime.now()
+        date_time = now.strftime("%m_%d_%Y_%H_%M_%S_")
+        dir_path = 'simulations/' + date_time + str(self.id)
+        os.makedirs(dir_path, exist_ok=False)
+        self.sim_dir = dir_path
+
         # Init Creatures
         creature_array = []
         for i in self.random_locations:
-            cr = Creature(gene_size=gene_size, num_int_neuron=num_int_neuron)
+            cr = Creature(simulation_id=str(self.sim_dir),
+                          gene_size=gene_size, num_int_neuron=num_int_neuron)
             cr.X = i[0]
             cr.Y = i[1]
             creature_array.append(cr)
