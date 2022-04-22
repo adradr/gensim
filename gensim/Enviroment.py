@@ -29,7 +29,7 @@ class SelectionCriteria:
             pass
 
 
-class Enviroment:
+class SimEnv:
     def init_population(self, population_size: int):
         def generate_grid_locations(size: int):
             x = np.linspace(start=0, stop=size-1, num=size).astype(int)
@@ -73,7 +73,7 @@ class Enviroment:
     def create_log(self):
         pass
 
-    def __init__(self, size: int, population_size: int, num_steps: int, gene_size: int, num_int_neuron: int):
+    def __init__(self, size: int, population_size: int, num_steps: int, num_rounds: int, gene_size: int, num_int_neuron: int):
         """Enviroment initialization
 
         Args:
@@ -96,6 +96,7 @@ class Enviroment:
         self.log = pd.DataFrame()
         self.id = uuid.uuid4()
         self.round = 0
+        self.max_round = num_rounds
 
         # Create folder for simulation
         now = datetime.datetime.now()
@@ -107,9 +108,15 @@ class Enviroment:
         # Init Creatures
         creature_array = []
         for i in self.random_locations:
-            cr = Creature(simulation_id=str(self.sim_dir),
+            cr = Creature(env=self,
                           gene_size=gene_size, num_int_neuron=num_int_neuron)
             cr.X = i[0]
             cr.Y = i[1]
             creature_array.append(cr)
         self.creature_array = creature_array
+
+        # Store occupied pixels
+        occupied_pixels = []
+        for i in creature_array:
+            occupied_pixels.append((i.X, i.Y))
+        self.occupied_pixels = occupied_pixels
