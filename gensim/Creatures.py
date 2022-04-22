@@ -231,14 +231,13 @@ class LeftDirections(Enum):
     SOUTH = Directions.EAST
 
 
-# 1. Mf - move forward (previous direction)
-# 2. Mrv - move reverse/backwards
-# 3. Mrn - move random
-# 4. Mlr - move left/right
-# 5. Mew - move east/west
-# 6. Mns - move north/south
-# 7. So - set oscillator period
-# 8. Ep - emit pheromone
+# 1. Mfr - move forward (previous direction)
+# 2. Mrn - move random
+# 3. Mlr - move left/right
+# 4. Mew - move east/west
+# 5. Mns - move north/south
+# 6. So - set oscillator period
+# 7. Ep - emit pheromone
 
 class Action:
     def __init__(self, creature: Creature):
@@ -257,8 +256,8 @@ class Action:
         except:
             return
 
-    def move(self, direction: Directions):
-        new_loc = [x + direction.value[idx]
+    def move(self, direction: Directions, value: float = 1):
+        new_loc = [(x + direction.value[idx]) * value
                    for idx, x in enumerate(self.loc)]
         # Check so neither coordinates cannot go below zero, else set to zero
         new_loc = [0 if x < 0 else x for x in new_loc]
@@ -266,30 +265,25 @@ class Action:
         self.loc = new_loc
         return new_loc
 
-    def mf(self):
-        new_loc = self.move(self.last_dir)
+    def mfr(self, value: float):
+        direction = self.last_dir if value > 0 else OppositeDirections[self.last_dir.name].value
+        new_loc = self.move(direction=direction, value=value)
         [self.creature.X, self.creature.Y] = new_loc
 
-    def mrv(self):
-        inverse_dir = OppositeDirections[self.last_dir.name].value
-        new_loc = self.move(inverse_dir)
+    def mlr(self, value: float):
+        direction = RightDirections[self.last_dir.name].value if value > 0 else LeftDirections[self.last_dir.name].value
+        new_loc = self.move(direction=direction, value=value)
         [self.creature.X, self.creature.Y] = new_loc
 
-    def ml(self):
-        other_dir = LeftDirections[self.last_dir.name].value
-        new_loc = self.move(other_dir)
+    def mew(self, value: float):
+        direction = Directions.EAST if value > 0 else Directions.WEST
+        new_loc = self.move(direction=direction, value=value)
         [self.creature.X, self.creature.Y] = new_loc
 
-    def mr(self):
-        other_dir = RightDirections[self.last_dir.name].value
-        new_loc = self.move(other_dir)
+    def mns(self, value: float):
+        direction = Directions.NORTH if value > 0 else Directions.SOUTH
+        new_loc = self.move(direction=direction, value=value)
         [self.creature.X, self.creature.Y] = new_loc
-
-    def mew(self):
-        pass
-
-    def mns(self):
-        pass
 
     def mrn(self):
         rand_dir = Directions[np.random.choice(Directions._member_names_)]
@@ -297,7 +291,7 @@ class Action:
         [self.creature.X, self.creature.Y] = new_loc
 
     def so(self, period):
-        pass
+        self.creature.oscillator.set_period(period)
 
     def ep(self):
         pass
@@ -379,11 +373,10 @@ class SensoryNeurons(Enum):
 
 
 class ActionNeurons(Enum):
-    Mf = 0
-    Mrv = 1
-    Mrn = 2
-    Mlr = 3
-    Mew = 4
-    Mns = 5
-    So = 6
-    Ep = 7
+    Mfr = 0
+    Mrn = 1
+    Mlr = 2
+    Mew = 3
+    Mns = 4
+    So = 5
+    Ep = 6
