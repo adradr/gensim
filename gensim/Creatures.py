@@ -297,11 +297,6 @@ class Action:
         pass
 
 
-class GeneType(Enum):
-    INTERNAL = 1
-    NORMAL = 0
-
-
 class Genome:
     def get_gene_hash(self, neuron):
         hash = hashlib.sha1(neuron).hexdigest()
