@@ -41,7 +41,7 @@ class Creature:
     def create_graph_img(self, view_img=False):
         genome_hash = self.get_genome_hash()
         dot = graphviz.Digraph(comment=genome_hash)
-        for idx, i in enumerate(self.neuron_array):
+        for idx, i in enumerate(self.gene_array):
             # Node values
             a = list(SensoryNeurons)[np.int(i[1])
                                      ].name if i[0] == 0 else 'N' + str(np.int(i[1]))
@@ -65,34 +65,24 @@ class Creature:
         os.remove(save_path)
 
     def get_genome_hash(self):
-        hash = hashlib.sha1(self.neuron_array).hexdigest()
+        hash = hashlib.sha1(self.gene_array).hexdigest()
         return str(hash)[:6]
 
     def __init__(self, env, gene_size: int, num_int_neuron: int):
-        # Generate gene pool for Creature
-        neuron_array = np.array([0, 0, 0, 0, 0])
-        gene_array = []
-        for i in range(gene_size):
-            gene = Gene(neuron_type=GeneType.NORMAL)
-            neuron_array = np.vstack((neuron_array, gene.neuron))
-            gene_array.append(gene)
-        for i in range(num_int_neuron):
-            gene = Gene(neuron_type=GeneType.INTERNAL,
-                        num_int_neuron=num_int_neuron)
-            neuron_array = np.vstack((neuron_array, gene.neuron))
-            gene_array.append(gene)
-        # Saving arrays
-        self.neuron_array = neuron_array[1:]  # Slicing off first empty neuron
-        self.gene_array = gene_array
+        # Get genome
+        genome = Genome(
+            gene_size=gene_size, num_int_neuron=num_int_neuron)
+        self.gene_array = genome.genome
         self.id = uuid.uuid4()
         self.env = env
         self.sim_id = env.sim_dir
         log.info(
-            f"Creature {str(self.id)[:8]} neuron array:\n{self.neuron_array}")
+            f"Creature {str(self.id)[:8]} neuron array:\n{self.gene_array}")
         # Location data
         self.X = 0
         self.Y = 0
-        self.last_dir = Directions.NULL
+        self.last_dir = Directions[Directions._member_names_[
+            np.random.randint(len(Directions))]]
         # Setting oscillator with a random init frequency
         self.oscillator = Oscillator(np.random.uniform(1, 5))
         # Setting init attributes
@@ -214,29 +204,72 @@ class Sensory:
 
 
 class Directions(Enum):
-    EAST = [1, 0]
-    WEST = [-1, 0]
-    NORTH = [0, 1]
-    SOUTH = [0, -1]
-    NULL = [0, 0]
+    EAST = (1, 0)
+    WEST = (-1, 0)
+    NORTH = (0, 1)
+    SOUTH = (0, -1)
+
+
+class OppositeDirections(Enum):
+    EAST = Directions.WEST
+    WEST = Directions.EAST
+    NORTH = Directions.SOUTH
+    SOUTH = Directions.NORTH
+
+# 1. Mf - move forward (previous direction)
+# 2. Mrv - move reverse/backwards
+# 3. Mrn - move random
+# 4. Mlr - move left/right
+# 5. Mew - move east/west
+# 6. Mns - move north/south
+# 7. So - set oscillator period
+# 8. Ep - emit pheromone
 
 
 class Action:
     def __init__(self, creature: Creature):
         self.creature = creature
+        self.loc = [self.creature.X, self.creature.Y]
+        self.last_dir = self.creature.last_dir
 
-    def move(self, direction):
-        loc = [self.creature.X, self.creature.Y]
-        new_loc = [x + Directions[direction].value[idx]
-                   for idx, x in enumerate(loc)]
+    def update_last_direction(self, last_loc: tuple, new_loc: tuple):
+        dir_values = [e.value for e in Creatures.Directions]
+
+    def move(self, direction: Directions):
+        new_loc = [x + direction.value[idx]
+                   for idx, x in enumerate(self.loc)]
         # Check so neither coordinates cannot go below zero, else set to zero
         new_loc = [0 if x < 0 else x for x in new_loc]
+        return new_loc
+
+    def mf(self):
+        new_loc = self.move(self.last_dir)
         [self.creature.X, self.creature.Y] = new_loc
 
-    def set_oscillator(self, period):
+    def mrv(self):
+        inverse_dir = OppositeDirections[self.last_dir]
+        new_loc = self.move(inverse_dir)
+        [self.creature.X, self.creature.Y] = new_loc
+
+    def mrn(self):
+        rand_dir = Directions[np.random.randint(
+            Creatures.Directions._member_names_)]
+        new_loc = self.move(rand_dir)
+        [self.creature.X, self.creature.Y] = new_loc
+
+    def mlr(self):
         pass
 
-    def emit_pheromone(self):
+    def mew(self):
+        pass
+
+    def mns(self):
+        pass
+
+    def so(self, period):
+        pass
+
+    def ep(self):
         pass
 
 
@@ -245,9 +278,9 @@ class GeneType(Enum):
     NORMAL = 0
 
 
-class Gene:
-    def get_gene_hash(self):
-        hash = hashlib.sha1(self.neuron).hexdigest()
+class Genome:
+    def get_gene_hash(self, neuron):
+        hash = hashlib.sha1(neuron).hexdigest()
         return str(hash)[:6]
 
     def update_input(self, inputs: np.array):
@@ -256,7 +289,7 @@ class Gene:
     def calculate_synapse(self):
         pass
 
-    def generate_gene(self, neuron_type: GeneType, num_int_neuron: int):
+    def generate_gene(self, neuron_type: GeneType, num_int_neuron: int, existing_int_neurons: list = []):
         # [source_type][from_neuron_id][destination_type][to_neuron_id][synapse_weight]
 
         # Calculate max lenghts
@@ -267,21 +300,24 @@ class Gene:
 
         # Creating neurons
         if neuron_type == GeneType.NORMAL:
+            # Normal so comes from sensory type source_type = 0
             source_type = 0
             from_neuron_id = np.random.randint(max_sensory_len)
-
+            # Can go to action type or internal type destination_type = 0 or 1
             destination_type = np.random.randint(2)
             to_neuron_id = np.random.randint(
-                max_action_len) if destination_type == 0 else np.random.randint(max_action_len+1)
+                max_action_len) if destination_type == 0 else np.random.randint(max_action_len, max_action_len + num_int_neuron + 1)
 
         if neuron_type == GeneType.INTERNAL:
+            Internal so comes from internal type source_type = 1
             source_type = 1
             from_neuron_id = np.random.randint(
-                max_sensory_len+1, from_neuron_len+1)
-
-            destination_type = np.random.randint(2)
-            to_neuron_id = np.random.randint(max_action_len) if destination_type == 0 else np.random.randint(
-                max_action_len+1, to_neuron_len+1)
+                max_sensory_len+1, from_neuron_len)
+            destination_type = 0 if not existing_int_neurons else np.random.randint(
+                2)
+            to_neuron_id = np.random.randint(
+                max_action_len) if destination_type == 0 else np.random.choice(existing_int_neurons, 1)
+            to_neuron_id = int(to_neuron_id)
 
         # Setting synapse weight between 1 and 5
         synapse_weight = np.random.uniform(low=-5, high=5)
@@ -289,37 +325,64 @@ class Gene:
         array = np.array([source_type, from_neuron_id,
                          destination_type, to_neuron_id, synapse_weight])
 
+        # Getting hash
+        self.gene_hash.append(self.get_gene_hash(array))
         return array
 
-    def __init__(self, neuron_type: GeneType, num_int_neuron=0):
+    def generate_full_genome(self, gene_size: int, num_int_neuron: int):
+        # Generate gene pool for Creature
+        neuron_array = np.array([0, 0, 0, 0, 0])
+        gene_array = []
+        for i in range(gene_size):
+            gene = self.generate_gene(
+                neuron_type=GeneType.NORMAL, num_int_neuron=num_int_neuron)
+            neuron_array = np.vstack((neuron_array, gene))
+            gene_array.append(gene)
 
-        self.neuron = self.generate_gene(neuron_type, num_int_neuron)
-        self.neuron_shape = self.neuron.shape[0]
-        self.inputs = np.empty(self.neuron_shape, dtype=object)
-        self.gene_hash = self.get_gene_hash()
+        # [] implement unique internal neuron
+        int_neuron_array = []
+        for i in gene_array:
+            if i[0] == 0:
+                if i[2] == 1:
+                    int_neuron_array.append(i[3])
+
+        for i in range(num_int_neuron):
+            gene = self.generate_gene(neuron_type=GeneType.INTERNAL,
+                                      num_int_neuron=num_int_neuron, existing_int_neurons=int_neuron_array)
+            neuron_array = np.vstack((neuron_array, gene))
+            gene_array.append(gene)
+        # Saving arrays
+        neuron_array = neuron_array[1:]  # Slicing off first empty neuron
+        return neuron_array
+
+    def __init__(self, gene_size: int, num_int_neuron: int):
+        self.gene_hash = []
+        self.genome = self.generate_full_genome(
+            gene_size=gene_size, num_int_neuron=num_int_neuron)
+        #self.inputs = np.empty(self.neuron_shape, dtype=object)
 
 
 class SensoryNeurons(Enum):
-    Sx = 1
-    Sy = 2
-    Dn = 3
-    Ds = 4
-    Dw = 5
-    De = 6
-    Da = 7
-    Va = 8
-    Ph = 9
-    Se = 10
-    Ag = 11
-    Os = 12
+    Sx = 0
+    Sy = 1
+    Dn = 2
+    Ds = 3
+    Dw = 4
+    De = 5
+    Da = 6
+    Va = 7
+    Ph = 8
+    Se = 9
+    Ag = 10
+    Os = 11
 
 
 class ActionNeurons(Enum):
-    Mf = 1
-    Mrv = 2
-    Mrn = 3
-    Mlr = 4
-    Mew = 5
-    Mns = 6
-    So = 7
-    Ep = 8
+    Mf = 0
+    Mrv = 1
+    Mrn = 2
+    Mlr = 3
+    Mew = 4
+    Mns = 5
+    So = 6
+    Ep = 7
