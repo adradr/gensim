@@ -27,18 +27,6 @@ def generate_pixels_around(grid_size: int, current_location: tuple):
 
 
 class Creature:
-    def process_enviroment(self):
-        pass
-
-    def mutate(self):
-        pass
-
-    def generate_genes():
-        pass
-
-    def generate_synapse():
-        pass
-
     def create_graph_img(self, view_img=False):
         genome_hash = self.get_genome_hash()
         save_path = f"{self.sim_id}/{genome_hash}"
@@ -47,10 +35,11 @@ class Creature:
                  fontname="Helvetica", label=f"Genome hash: {genome_hash}\n{self.sim_id}")
         for idx, i in enumerate(self.gene_array):
             # Node values
-            a = list(SensoryNeurons)[np.int(i[1])
-                                     ].name if i[0] == 0 else 'N' + str(np.int(i[1]))
-            b = list(ActionNeurons)[np.int(i[3])
-                                    ].name if i[2] == 0 else 'N' + str(np.int(i[3]))
+            idx_sensory = SensoryNeurons
+            a = str(int(i[1])) + '.' + list(SensoryNeurons)[
+                np.int(i[1])].name if i[0] == 0 else 'N' + str(np.int(i[1]))
+            b = str(int(i[3])) + '.' + list(ActionNeurons)[np.int(i[3])
+                                                           ].name if i[2] == 0 else 'N' + str(np.int(i[3]))
             # Orange if sensory, gray if internal
             id_1_color = "#FFA500" if i[0] == 0 else "#a5a0a8"
             # Blue if action, gray if internal
@@ -73,9 +62,22 @@ class Creature:
 
     def __init__(self, env, gene_size: int, num_int_neuron: int):
         # Get genome
+        self.gene_size = gene_size
+        self.num_int_neuron = num_int_neuron
         genome = Genome(
             gene_size=gene_size, num_int_neuron=num_int_neuron)
         self.gene_array = genome.genome
+        # Calculate required info
+        len_sensory = len(SensoryNeurons)
+        len_action = len(ActionNeurons)
+        arr_sensory = [x.value for x in list(SensoryNeurons)]
+        arr_action = [x.value for x in list(ActionNeurons)]
+        arr_int_neurons = [
+            x+len_sensory for x in np.arange(self.num_int_neuron)]
+        # Init neuron states
+        self.action_neuron_state = dict.fromkeys(arr_action, 0)
+        self.int_neuron_state = dict.fromkeys(arr_int_neurons, 0)
+        # General info
         self.id = uuid.uuid4()
         self.env = env
         self.sim_id = env.sim_dir
@@ -98,6 +100,7 @@ class Oscillator:
         return self.signal[step]
 
     def set_period(self, freq: float):
+        freq = np.interp(freq, [-4, 4], [1, 5])
         assert 5 >= freq >= 1, "Use value between 5 and 1"
         self.freq = freq
         time = np.arange(0, 100, 0.1)
@@ -126,32 +129,33 @@ class Oscillator:
 class Sensory:
     def map_0_1(self, value: int, max_value: int):
         return value / max_value
+        # [] something is wrong with values
 
-    def get_x_loc(self):
-        self.x_loc = self.creature.X
-        return self.map_0_1(self.x_loc, self.x_loc_max)
+    def x_loc(self):
+        x_loc = self.creature.X
+        return self.map_0_1(x_loc, self.x_loc_max)
 
-    def get_y_loc(self):
-        self.y_loc = self.creature.Y
-        return self.map_0_1(self.y_loc, self.y_loc_max)
+    def y_loc(self):
+        y_loc = self.creature.Y
+        return self.map_0_1(y_loc, self.y_loc_max)
 
-    def get_dst_north(self):
-        self.dst_north = self.creature.env.Y - self.creature.Y
-        return self.map_0_1(self.dst_north, self.y_loc_max, )
+    def dst_north(self):
+        dst_north = self.creature.env.Y - self.creature.Y
+        return self.map_0_1(dst_north, self.y_loc_max)
 
-    def get_dst_south(self):
-        self.dst_south = self.creature.Y
-        return self.map_0_1(self.dst_south, self.y_loc_max)
+    def dst_south(self):
+        dst_south = self.creature.Y
+        return self.map_0_1(dst_south, self.y_loc_max)
 
-    def get_dst_west(self):
-        self.dst_west = self.creature.env.Y - self.creature.X
-        return self.map_0_1(self.dst_west, self.x_loc_max)
+    def dst_west(self):
+        dst_west = self.creature.env.Y - self.creature.X
+        return self.map_0_1(dst_west, self.x_loc_max)
 
-    def get_dst_east(self):
-        self.dst_east = self.creature.X
-        return self.map_0_1(self.dst_east, self.x_loc_max)
+    def dst_east(self):
+        dst_east = self.creature.X
+        return self.map_0_1(dst_east, self.x_loc_max)
 
-    def get_density_around(self):
+    def density_around(self):
         grid_size = 5 * 5
         # Getting a nullpoint for the 5x5 search grid
         null_point = [x-2 for x in self.creature_loc]
@@ -160,10 +164,10 @@ class Sensory:
         # Calculating the unique number of difference between the total grid and proximity field
         total_arr = density_loc_arr + self.pixel_arr
         density = len(list(set(total_arr))) - len(self.pixel_arr)
-        self.density = grid_size - density - 1  #  -1 for the creature location
-        return self.map_0_1(self.density, grid_size-1)
+        density = grid_size - density - 1  #  -1 for the creature location
+        return self.map_0_1(density, grid_size-1)
 
-    def get_view_forward(self, number_pixel_ahead: int = 3):
+    def view_forward(self, number_pixel_ahead: int = 3):
         locations_ahead = []
         # Calculate pixel locations ahead by number_pixel_ahead
         for i in range(number_pixel_ahead):
@@ -172,26 +176,26 @@ class Sensory:
             locations_ahead.append(tuple(self.creature_loc))
         # Search array of ahead locations if there are other creatures
         total_arr = locations_ahead + self.pixel_arr
-        self.pixels_ahead = len(self.pixel_arr)-len(list(set(total_arr)))
-        return self.map_0_1(self.pixels_ahead, number_pixel_ahead)
+        pixels_ahead = len(self.pixel_arr)-len(list(set(total_arr)))
+        return self.map_0_1(pixels_ahead, number_pixel_ahead)
 
-    def get_pheromons_around(self):
-        # [] need to implement
+    def pheromones_around(self):
+        # [] need to implement get_pheromons_around
         return 0
 
-    def get_sex(self):
-        self.sex = self.creature.sex
-        return self.sex
+    def sex(self):
+        # [] need to implement sex sensory
+        sex = self.creature.sex
+        return 0
 
-    def get_age(self):
-        self.age = self.creature.age
-        return self.map_0_1(self.age, self.env_max_age)
+    def age(self):
+        age = self.creature.age
+        return self.map_0_1(age, self.env_max_age)
 
-    def get_oscillator(self):
-        self.oscillator = self.creature.oscillator.get_value_at_step(
-            self.creature.env.step)
-        print(self.oscillator)
-        return self.map_0_1(self.oscillator, self.creature.oscillator.get_max_value())
+    def oscillator(self):
+        oscillator = self.creature.oscillator.get_value_at_step(
+            self.creature.env.num_step)
+        return self.map_0_1(oscillator, self.creature.oscillator.max_value)
 
     def __init__(self, creature: Creature):
         self.creature = creature
@@ -230,14 +234,14 @@ class LeftDirections(Enum):
     NORTH = Directions.WEST
     SOUTH = Directions.EAST
 
+# 1. move_fr - move forward (previous direction)
+# 2. move_rn - move random
+# 3. move_lr - move left/right
+# 4. move_ew - move east/west
+# 5. move_ns - move north/south
+# 6. set_osc - set oscillator period
+# 7. emit_pheromone - emit pheromone
 
-# 1. Mfr - move forward (previous direction)
-# 2. Mrn - move random
-# 3. Mlr - move left/right
-# 4. Mew - move east/west
-# 5. Mns - move north/south
-# 6. So - set oscillator period
-# 7. Ep - emit pheromone
 
 class Action:
     def __init__(self, creature: Creature):
@@ -246,6 +250,7 @@ class Action:
         self.last_dir = self.creature.last_dir
         self.dir_values = [e.value for e in Directions]
         self.dir_keys = [e.name for e in Directions]
+        self.max_loc = self.creature.env.X
 
     def update_last_direction(self, last_loc: tuple, new_loc: tuple):
         last_dir = tuple([x-last_loc[idx] for idx, x in enumerate(new_loc)])
@@ -257,43 +262,49 @@ class Action:
             return
 
     def move(self, direction: Directions, value: float = 1):
-        new_loc = [(x + direction.value[idx]) * value
+        new_loc = [(x + (direction.value[idx]) * value)
                    for idx, x in enumerate(self.loc)]
+        # Round pixel values
+        new_loc = [round(x) for x in new_loc]
         # Check so neither coordinates cannot go below zero, else set to zero
         new_loc = [0 if x < 0 else x for x in new_loc]
+        # Check so neither coordinates cannot go above max, else set to max
+        new_loc = [0 if x < self.max_loc else x for x in new_loc]
+        # Update direction according to last loc change
         self.update_last_direction(last_loc=self.loc, new_loc=new_loc)
         self.loc = new_loc
         return new_loc
 
-    def mfr(self, value: float):
+    def move_fr(self, value: float):
         direction = self.last_dir if value > 0 else OppositeDirections[self.last_dir.name].value
         new_loc = self.move(direction=direction, value=value)
         [self.creature.X, self.creature.Y] = new_loc
 
-    def mlr(self, value: float):
+    def move_lr(self, value: float):
         direction = RightDirections[self.last_dir.name].value if value > 0 else LeftDirections[self.last_dir.name].value
         new_loc = self.move(direction=direction, value=value)
         [self.creature.X, self.creature.Y] = new_loc
 
-    def mew(self, value: float):
+    def move_ew(self, value: float):
         direction = Directions.EAST if value > 0 else Directions.WEST
         new_loc = self.move(direction=direction, value=value)
         [self.creature.X, self.creature.Y] = new_loc
 
-    def mns(self, value: float):
+    def move_ns(self, value: float):
         direction = Directions.NORTH if value > 0 else Directions.SOUTH
         new_loc = self.move(direction=direction, value=value)
         [self.creature.X, self.creature.Y] = new_loc
 
-    def mrn(self):
+    def move_rn(self, value: float):
         rand_dir = Directions[np.random.choice(Directions._member_names_)]
-        new_loc = self.move(rand_dir)
+        new_loc = self.move(rand_dir, value=value)
         [self.creature.X, self.creature.Y] = new_loc
 
-    def so(self, period):
-        self.creature.oscillator.set_period(period)
+    def set_osc(self, value: float):
+        self.creature.oscillator.set_period(value)
 
-    def ep(self):
+    def emit_pheromone(self, value: float):
+        # [] need to implement emit_pheromones
         pass
 
 
@@ -343,7 +354,11 @@ class Genome:
         gene_array = []
         for i in range(gene_size):
             gene_array.append(self.generate_gene(int_neuron_arr))
-        return np.array(gene_array)
+        # convert to np array
+        gene_array = np.array(gene_array)
+        # Sort based on first gene
+        gene_array = gene_array[gene_array[:, 0].argsort()]
+        return gene_array
 
     def __init__(self, gene_size: int, num_int_neuron: int):
         self.gene_hash = []
@@ -353,25 +368,25 @@ class Genome:
 
 
 class SensoryNeurons(Enum):
-    Sx = 0
-    Sy = 1
-    Dn = 2
-    Ds = 3
-    Dw = 4
-    De = 5
-    Da = 6
-    Va = 7
-    Ph = 8
-    Se = 9
-    Ag = 10
-    Os = 11
+    x_loc = 0
+    y_loc = 1
+    dst_north = 2
+    dst_south = 3
+    dst_west = 4
+    dst_east = 5
+    density_around = 6
+    view_forward = 7
+    pheromones_around = 8
+    sex = 9
+    age = 10
+    oscillator = 11
 
 
 class ActionNeurons(Enum):
-    Mfr = 0
-    Mrn = 1
-    Mlr = 2
-    Mew = 3
-    Mns = 4
-    So = 5
-    Ep = 6
+    move_fr = 0
+    move_rn = 1
+    move_lr = 2
+    move_ew = 3
+    move_ns = 4
+    set_osc = 5
+    emit_pheromone = 6
