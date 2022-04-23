@@ -204,7 +204,7 @@ class Sensory:
         self.creature_loc = (self.creature.X, self.creature.Y)
         self.pixel_arr = self.creature.env.occupied_pixels
         self.direction = self.creature.last_dir.value
-        self.env_max_age = self.creature.env.max_round
+        self.env_max_age = self.creature.env.num_round
 
 
 class Directions(Enum):
@@ -250,7 +250,7 @@ class Action:
         self.last_dir = self.creature.last_dir
         self.dir_values = [e.value for e in Directions]
         self.dir_keys = [e.name for e in Directions]
-        self.max_loc = self.creature.env.X
+        self.max_loc = self.creature.env.X - 1
 
     def update_last_direction(self, last_loc: tuple, new_loc: tuple):
         last_dir = tuple([x-last_loc[idx] for idx, x in enumerate(new_loc)])
@@ -269,7 +269,7 @@ class Action:
         # Check so neither coordinates cannot go below zero, else set to zero
         new_loc = [0 if x < 0 else x for x in new_loc]
         # Check so neither coordinates cannot go above max, else set to max
-        new_loc = [0 if x < self.max_loc else x for x in new_loc]
+        new_loc = [self.max_loc if x > self.max_loc else x for x in new_loc]
         # Update direction according to last loc change
         self.update_last_direction(last_loc=self.loc, new_loc=new_loc)
         self.loc = new_loc
