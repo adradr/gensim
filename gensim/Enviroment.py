@@ -1,14 +1,32 @@
+from gensim.Creatures import *
+from tqdm import tqdm
 import os
 import datetime
 import logging
-from operator import ge
 import uuid
 import numpy as np
 import pandas as pd
-import cv2
-from gensim.Creatures import *
+import imageio
+import matplotlib.pyplot as plt
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
+
+
+def get_text(id, X, population_size,
+             gene_size, num_int_neuron,
+             num_steps, num_step, num_rounds, num_round):
+    text = f"""Simulation enviroment:
+{id}
+
+grid_size:           {X}
+population_size:     {population_size}
+gene_size:           {gene_size}
+num_int_neuron:      {num_int_neuron}
+num_steps:           {num_steps}/{num_step}
+max_round:"          {num_rounds}/{num_round}"""
+
+    return text
 
 
 class SelectionCriteria:
@@ -123,7 +141,9 @@ class SimEnv:
         i.int_neuron_state = dict.fromkeys(arr_int_neurons, 0)
         log.debug(i.X, i.Y)
         # Generate new frame for step
-        self.create_img()
+        image = self.create_img()
+        path = self.sim_subdir + str(len(self.img_arr)) + '.png'
+        self.save_plot(path, image)
         # Increase step counter
         self.num_step += 1
 
@@ -146,20 +166,44 @@ class SimEnv:
         for i in self.creature_array:
             image[i.X, i.Y] = hex_to_rgb(i.get_genome_hash())
         # Save image as result.png
-        filename = self.sim_subdir + str(self.num_step)
-        cv2.imwrite(filename, image)
-        # self.img_arr.append(image)
+        filename = self.sim_subdir + str(self.num_step) + '.png'
+        #cv2.imwrite(filename, image)
+        self.img_arr.append(image)
+        return image
 
-    def save_animation(self):
-        # create a video writer
-        filename = self.sim_dir + '/grid_animation.gif'
-        fps = 24
-        # writer = cv2.VideoWriter()
-        # writer = cv2.cvCreateVideoWriter(
-        #     filename, -1, fps, cv2.Size(self.X, self.Y), is_color=1)
-        # and write your frames in a loop if you want
-        # for i in self.img_arr:
-        #     cv2.cvWriteFrame(writer, i)
+    def save_plot(self, path: str, image: np.array):
+        # Plotting single image
+        plt.figure(figsize=(10, 5))
+        plt.imshow(image, origin='lower', resample=False, alpha=1)
+        text_str = get_text(self.id, self.X, self.population_size,
+                            self.gene_size, self.num_int_neuron,
+                            self.num_steps, self.num_step,
+                            self.num_rounds, self.num_round)
+        # these are matplotlib.patch.Patch properties
+        props = dict(boxstyle='round', facecolor='orange', alpha=1)
+        # place a text box in upper left in axes coords
+        plt.text((self.X + (self.X / 3)), 0, text_str, fontsize=14, bbox=props,
+                 fontdict={"family": "monospace"})
+        plt.savefig(path, dpi=100, facecolor='white', bbox_inches='tight')
+        log.info(path)
+        self.img_paths.append(path)
+        plt.close()
+
+    def save_animation(self, path: str, fps: int = 10):
+        kargs = {'quality': 10, 'macro_block_size': None,
+                 'ffmpeg_params': ['-s', '800x400']}
+        with imageio.get_writer(self.anim_path, fps=fps, **kargs) as writer:
+            for filename in self.img_paths:
+                image = imageio.imread(filename)
+                writer.append_data(image)
+        # # Remove files
+        # for filename in set(self.img_paths):
+        #     os.remove(filename)
+
+    def generate_animation(self, fps: int = 10):
+        log.info('Generating enviroment animation...')
+        self.save_animation(self.anim_path, fps)
+        log.info(f"Saved animation at {self.anim_path}")
 
     def create_log(self):
         pass
@@ -177,9 +221,9 @@ class SimEnv:
         self.X = size
         self.Y = size
         self.num_steps = num_steps
-        self.num_step = 0
-        self.round = 0
-        self.max_round = num_rounds
+        self.num_step = 1
+        self.num_round = 1
+        self.num_rounds = num_rounds
 
         # Init population
         self.population_size = population_size
@@ -189,16 +233,18 @@ class SimEnv:
         self.log = pd.DataFrame()
         self.id = uuid.uuid4()
         self.img_arr = []
+        self.img_paths = []
 
         # Create folder for simulation
         now = datetime.datetime.now()
-        date_time = now.strftime("%m_%d_%Y_%H_%M_%S_")
-        dir_path = 'simulations/' + date_time
-        subdir_path = dir_path + '/frames/'
+        date_time = now.strftime("%m_%d_%Y_%H_%M_%S")
+        dir_path = 'simulations/' + date_time + '/'
+        subdir_path = dir_path + 'frames/'
         os.makedirs(dir_path, exist_ok=False)
-        os.makedirs(dir_path, exist_ok=False)
+        os.makedirs(subdir_path, exist_ok=False)
         self.sim_dir = dir_path
         self.sim_subdir = subdir_path
+        self.anim_path = self.sim_dir + 'animation.mp4'
 
         # Init Creatures
         self.num_int_neuron = num_int_neuron
