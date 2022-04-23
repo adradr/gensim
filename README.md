@@ -39,6 +39,18 @@ to_neuron_id = the unique id of the destination neuron
 synapse_weight = the weight of the connection
 ```
 
+### Neuron inputs/outputs
+
+To calculate the actions taken in each step for each creature the following calculations are applied inside a creatures genome:
+
+```
+| Sensory neurons output                            |  0..1 | 
+| Action neurons input      tanh(sum(inputs))       | -1..1 | 
+| Action neurons output                             | -4..4 | 
+| Internal neurons input    tanh(sum(inputs))       | -1..1 | 
+| Connection weights                                | -5..5 | 
+```
+
 ### Example of a genome structure
 
 ![830aa9](img/830aa9.png)
@@ -55,7 +67,7 @@ Creatures are using a synthetic internal oscillator which influences their senso
 - Sensory neurons emit a value between `0..1`
 - Internal neurons are outputting `=tanh(sum(input)) = -1..1`
 - Action neurons are acting upont `=tanh(sum(input)) = -1..1`
-- Connections has a weight between `-5..5
+- Connections has a weight between `-5..5`
 
 Each sensory neuron outputs a float number (-1,+1) 
 
@@ -65,25 +77,24 @@ Each sensory neuron outputs a float number (-1,+1)
 - action neuron to interact in the enviroment
 
 ### Sensory Neurons
-1. Sx - location on the X axis
-2. Sy - location on the Y axis
-3. Dn - distance from north
-4. Ds - distance from south
-5. Dw - distance from west
-6. De - distance from east
-7. Da - density around: how many individuals are around (8 pixels)
-8. Va - view ahead forward: is there an individual in the next 3 pixels
-9. Ph - pheromons detected around (5x5 pixels)
-10. Se - sex
-11. Ag - age
-12. Os - internal oscillator signal
+0. x_loc - location on the X axis
+1. y_loc - location on the Y axis
+2. dst_north - distance from north
+3. dst_south - distance from south
+4. dst_west - distance from west
+5. dst_east - distance from east
+6. density_around - density around: how many individuals are around (8 pixels)
+7. view_forward - view ahead forward: is there an individual in the next 3 pixels
+8. pheromones_around - pheromons detected around (5x5 pixels)
+9. sex - sex
+10. age - age
+11. oscillator - internal oscillator signal
 
 ### Action Neurons
-1. Mf - move forward (previous direction)
-2. Mrv - move reverse/backwards
-3. Mrn - move random
-4. Mlr - move left/right
-5. Mew - move east/west
-6. Mns - move north/south
-7. So - set oscillator period
-8. Ep - emit pheromone
+0. move_fr - move forward/reverse (based on previous direction)
+1. move_rn - move random
+2. move_lr - move left/right
+3. move_ew - move east/west
+4. move_ns - move north/south
+5. set_osc - set oscillator period
+6. emit_pheromone - emit pheromone
