@@ -1,5 +1,3 @@
-from gensim.Creatures import *
-from tqdm import tqdm
 import os
 import datetime
 import logging
@@ -8,9 +6,11 @@ import numpy as np
 import pandas as pd
 import imageio
 import matplotlib.pyplot as plt
+from tqdm.contrib.concurrent import thread_map
+
+from gensim.Creatures import *
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
 
 
 def get_text(id, X, population_size,
@@ -77,18 +77,28 @@ class SimEnv:
         return occupied_pixels
 
     def step(self):
-        for cr in self.creature_array:
-            log.info(cr, cr.X, cr.Y)
-            # Calculate synapses' inputs
-            cr.genome.calculate_synapses()
-            # Calculate output neurons states
-            cr.genome.calculate_outputs_neurons()
-            # Execute neuron states
-            cr.genome.execute_neuron_states()
-        # Generate new frame for step
+        # Multithreading
+        def calc_syn(i):
+            i.genome.calculate_synapses()
+
+        def calc_output(i):
+            i.genome.calculate_outputs_neurons()
+
+        def execute_output(i):
+            i.genome.execute_neuron_states()
+
+        inputs = [x for x in self.creature_array]
+        thread_map(calc_syn, inputs)
+        thread_map(calc_output, inputs)
+        thread_map(execute_output, inputs)
+
+        # żaving image
         image = self.create_img()
-        path = self.sim_subdir + str(len(self.img_arr)) + '.png'
+        path = self.sim_subdir + str(self.num_step) + '.png'
         self.save_plot(path, image)
+        # Calculate new occupied pixels
+        self.occupied_pixels = self.calc_occupied_pixels()
+        log.debug(f"Occupied pixels:\n{self.occupied_pixels}")
         # Increase step counter
         self.num_step += 1
 
@@ -113,7 +123,7 @@ class SimEnv:
         # Save image as result.png
         filename = self.sim_subdir + str(self.num_step) + '.png'
         #cv2.imwrite(filename, image)
-        self.img_arr.append(image)
+        # self.img_arr.append(image)
         return image
 
     def save_plot(self, path: str, image: np.array):
@@ -130,14 +140,17 @@ class SimEnv:
         plt.text((self.X + (self.X / 3)), 0, text_str, fontsize=14, bbox=props,
                  fontdict={"family": "monospace"})
         plt.savefig(path, dpi=100, facecolor='white', bbox_inches='tight')
-        log.info(path)
+        log.debug(f"Saving frame to:{path}")
         self.img_paths.append(path)
         plt.close()
 
     def save_animation(self, path: str, fps: int = 10):
-        kargs = {'quality': 10, 'macro_block_size': None,
-                 'ffmpeg_params': ['-s', '800x400']}
-        with imageio.get_writer(self.anim_path, fps=fps, **kargs) as writer:
+        if path.split('.')[-1] == 'mp4':
+            kargs = {'quality': 10, 'macro_block_size': None,
+                     'ffmpeg_params': ['-s', '800x400']}
+        if path.split('.')[-1] == 'gif':
+            kargs = {}
+        with imageio.get_writer(path, fps=fps, **kargs) as writer:
             for filename in self.img_paths:
                 image = imageio.imread(filename)
                 writer.append_data(image)
@@ -146,9 +159,11 @@ class SimEnv:
         #     os.remove(filename)
 
     def generate_animation(self, fps: int = 10):
-        log.info('Generating enviroment animation...')
-        self.save_animation(self.anim_path, fps)
-        log.info(f"Saved animation at {self.anim_path}")
+        log.info('Generating simulation animation...')
+        self.save_animation(self.anim_path_mp4, fps)
+        self.save_animation(self.anim_path_gif, fps)
+        log.info(f"Saved MP4 animation at {self.anim_path_mp4}")
+        log.info(f"Saved GIF animation at {self.anim_path_gif}")
 
     def create_log(self):
         pass
@@ -181,7 +196,7 @@ class SimEnv:
         # Init enviroment utils
         self.log = pd.DataFrame()
         self.id = uuid.uuid4()
-        self.img_arr = []
+        #self.img_arr = []
         self.img_paths = []
 
         # Create folder for simulation
@@ -193,7 +208,8 @@ class SimEnv:
         os.makedirs(subdir_path, exist_ok=False)
         self.sim_dir = dir_path
         self.sim_subdir = subdir_path
-        self.anim_path = self.sim_dir + 'animation.mp4'
+        self.anim_path_mp4 = self.sim_dir + 'animation.mp4'
+        self.anim_path_gif = self.sim_dir + 'animation.gif'
 
         # Init Creatures
         self.num_int_neuron = num_int_neuron
@@ -205,9 +221,11 @@ class SimEnv:
                           num_int_neuron=num_int_neuron)
             cr.X = i[0]
             cr.Y = i[1]
+            cr.genome.action.update_loc()
             creature_array.append(cr)
+            log.debug(f"env new self.loc: {cr.genome.action.loc}")
         self.creature_array = creature_array
 
         # Store occupied pixels
         self.occupied_pixels = self.calc_occupied_pixels()
-        log.debug("Occupied pixels:", self.occupied_pixels)
+        log.debug(f"Occupied pixels:\n{self.occupied_pixels}")
