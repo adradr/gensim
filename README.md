@@ -14,7 +14,7 @@ The enviroment is made up of an X times Y **pixel grid**. Time is divided for **
 
  Creatures can move around in the enviroment based on their action neuron outputs. A pixel can only host a single creature on it, so creatures can be blocking each other.
 
- ![enviroment](img/result.png)
+ ![enviroment](img/animation.gif)
 
 ## Creatures
 
