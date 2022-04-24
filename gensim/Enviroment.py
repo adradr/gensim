@@ -77,76 +77,14 @@ class SimEnv:
         return occupied_pixels
 
     def step(self):
-        # Calculate required info
-        len_sensory = len(SensoryNeurons)
-        len_action = len(ActionNeurons)
-        arr_sensory = [x.value for x in list(SensoryNeurons)]
-        arr_action = [x.value for x in list(ActionNeurons)]
-        arr_int_neurons = [
-            x+len_sensory for x in np.arange(self.num_int_neuron)]
-
-        # [] need to reorg this into Creatures module
-        # Iterating over creatures and evaluating their genes for a step in a round
-        for i in self.creature_array:
-            sensory = Sensory(i)
-            action = Action(i)
-
-            log.debug(i.last_dir, i.X, i.Y)
-
-            for gene in i.gene_array:
-                # [ 1., 12., 0., 1.,  0.09899215]
-                # [ 0., 6., 1., 14., -2.21110532]
-                # Sensory neurons output 0..1
-                # Action neurons input tanh(sum(inputs)) -1..1
-                # Action neurons output -4..4
-                # Internal neurons input tanh(sum(inputs)) -1..1
-                # Connection weights -5..5
-                # If input source is action
-                if gene[1] in arr_sensory:
-                    input_val = getattr(
-                        sensory, SensoryNeurons(gene[1]).name)()
-                # If input source is internal neuron
-                if gene[1] in arr_int_neurons:
-                    input_val = i.int_neuron_state[gene[1]]
-
-                log.debug(gene, i.X, i.Y, input_val)
-                log.debug(SensoryNeurons(gene[1]).name if gene[1] in arr_sensory else gene[1], ActionNeurons(
-                    gene[3]).name if gene[3] in arr_action else gene[3])
-
-                # If output destination is action neuron
-                if gene[3] in arr_action:
-                    # getattr(action, ActionNeurons(gene(3)).name)(input_val)
-                    i.action_neuron_state[gene[3]
-                                          ] = i.action_neuron_state[gene[3]] + input_val
-                # If output destination is internal neuron
-                if gene[3] in arr_int_neurons:
-                    i.int_neuron_state[gene[3]
-                                       ] = i.int_neuron_state[gene[3]] + input_val
-
-                log.debug(i.action_neuron_state)
-                log.debug(i.int_neuron_state)
-
-            # Calculate output neurons =tanh(sum(input)) = -1..1 for action and internals
-            for f in i.int_neuron_state.items():
-                inputs = np.array(i.int_neuron_state[f[0]])
-                i.int_neuron_state[f[0]] = np.tanh(np.sum(inputs))
-
-            for f in i.action_neuron_state.items():
-                inputs = np.array(i.action_neuron_state[f[0]])
-                i.action_neuron_state[f[0]] = np.tanh(np.sum(inputs))
-
-            log.debug('Iteration over, executing action neurons')
-            log.debug(i.action_neuron_state)
-            log.debug(i.int_neuron_state)
-            # Execute for all action neurons
-            for h in i.action_neuron_state.items():
-                if h[1]:
-                    getattr(action, ActionNeurons(h[0]).name)(h[1])
-                    log.debug(i.last_dir, i.X, i.Y)
-                # [] need to multiply by synapse weights also
-        i.action_neuron_state = dict.fromkeys(arr_action, 0)
-        i.int_neuron_state = dict.fromkeys(arr_int_neurons, 0)
-        log.debug(i.X, i.Y)
+        for cr in self.creature_array:
+            log.info(cr, cr.X, cr.Y)
+            # Calculate synapses' inputs
+            cr.genome.calculate_synapses()
+            # Calculate output neurons states
+            cr.genome.calculate_outputs_neurons()
+            # Execute neuron states
+            cr.genome.execute_neuron_states()
         # Generate new frame for step
         image = self.create_img()
         path = self.sim_subdir + str(len(self.img_arr)) + '.png'
@@ -263,7 +201,8 @@ class SimEnv:
         creature_array = []
         for i in self.random_locations:
             cr = Creature(env=self,
-                          gene_size=gene_size, num_int_neuron=num_int_neuron)
+                          gene_size=gene_size,
+                          num_int_neuron=num_int_neuron)
             cr.X = i[0]
             cr.Y = i[1]
             creature_array.append(cr)
@@ -271,3 +210,4 @@ class SimEnv:
 
         # Store occupied pixels
         self.occupied_pixels = self.calc_occupied_pixels()
+        log.debug("Occupied pixels:", self.occupied_pixels)

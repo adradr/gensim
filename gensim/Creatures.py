@@ -61,32 +61,10 @@ class Creature:
         return str(hash)[:6]
 
     def __init__(self, env, gene_size: int, num_int_neuron: int):
-        # Get genome
-        self.gene_size = gene_size
-        self.num_int_neuron = num_int_neuron
-        genome = Genome(
-            gene_size=gene_size, num_int_neuron=num_int_neuron, creature=self)
-        self.genome = genome
-        self.gene_array = genome.genome
-
-        # Calculate required info
-        len_sensory = len(SensoryNeurons)
-        len_action = len(ActionNeurons)
-        arr_sensory = [x.value for x in list(SensoryNeurons)]
-        arr_action = [x.value for x in list(ActionNeurons)]
-        arr_int_neurons = [
-            x+len_sensory for x in np.arange(self.num_int_neuron)]
-
-        # Init neuron states
-        self.action_neuron_state = dict.fromkeys(arr_action, 0)
-        self.int_neuron_state = dict.fromkeys(arr_int_neurons, 0)
-
         # General info
         self.id = uuid.uuid4()
         self.env = env
         self.sim_id = env.sim_dir
-        log.info(
-            f"Creature {str(self.id)[:8]} neuron array:\n{self.gene_array}")
 
         # Location data
         self.X = 0
@@ -100,6 +78,27 @@ class Creature:
         # Setting init attributes
         self.age = 0
         self.sex = np.random.randint(2)  #  0 - male, 1 - female
+
+        # Get genome
+        self.gene_size = gene_size
+        self.num_int_neuron = num_int_neuron
+        self.genome = Genome(
+            gene_size=gene_size, num_int_neuron=num_int_neuron, creature=self)
+        self.gene_array = self.genome.genome
+        log.info(
+            f"Creature {str(self.id)[:8]} neuron array:\n{self.gene_array}")
+
+        # Calculate required info
+        len_sensory = len(SensoryNeurons)
+        len_action = len(ActionNeurons)
+        arr_sensory = [x.value for x in list(SensoryNeurons)]
+        arr_action = [x.value for x in list(ActionNeurons)]
+        arr_int_neurons = [
+            x+len_sensory for x in np.arange(self.num_int_neuron)]
+
+        # Init neuron states
+        self.action_neuron_state = dict.fromkeys(arr_action, 0)
+        self.int_neuron_state = dict.fromkeys(arr_int_neurons, 0)
 
 
 class Oscillator:
@@ -167,8 +166,9 @@ class Sensory:
         # Creating the pixel locations in 5 pixels around creature
         density_loc_arr = generate_pixels_around(5, self.creature_loc)
         # Calculating the unique number of difference between the total grid and proximity field
-        total_arr = density_loc_arr + self.pixel_arr
-        density = len(list(set(total_arr))) - len(self.pixel_arr)
+        total_arr = density_loc_arr + self.creature.env.occupied_pixels
+        density = len(list(set(total_arr))) - \
+            len(self.creature.env.occupied_pixels)
         density = grid_size - density - 1  #  -1 for the creature location
         return self.map_0_1(density, grid_size-1)
 
@@ -180,8 +180,9 @@ class Sensory:
                 tuple(self.direction), self.creature_loc)
             locations_ahead.append(tuple(self.creature_loc))
         # Search array of ahead locations if there are other creatures
-        total_arr = locations_ahead + self.pixel_arr
-        pixels_ahead = len(self.pixel_arr)-len(list(set(total_arr)))
+        total_arr = locations_ahead + self.creature.env.occupied_pixels
+        pixels_ahead = len(
+            self.creature.env.occupied_pixels)-len(list(set(total_arr)))
         return self.map_0_1(pixels_ahead, number_pixel_ahead)
 
     def pheromones_around(self):
@@ -207,7 +208,6 @@ class Sensory:
         self.y_loc_max = self.creature.env.Y
         self.x_loc_max = self.creature.env.X
         self.creature_loc = (self.creature.X, self.creature.Y)
-        self.pixel_arr = self.creature.env.occupied_pixels
         self.direction = self.creature.last_dir.value
         self.env_max_age = self.creature.env.num_round
 
@@ -323,14 +323,17 @@ class Genome:
 
     def execute_neuron_states(self):
         # Execute for all action neurons
-        for h in i.action_neuron_state.items():
+        for h in self.creature.action_neuron_state.items():
             if h[1]:
-                getattr(action, ActionNeurons(h[0]).name)(h[1])
-                log.debug(i.last_dir, i.X, i.Y)
+                getattr(self.action, ActionNeurons(h[0]).name)(h[1])
+                log.debug(self.creature.last_dir,
+                          self.creature.X, self.creature.Y)
             # [] need to multiply by synapse weights also
-        i.action_neuron_state = dict.fromkeys(arr_action, 0)
-        i.int_neuron_state = dict.fromkeys(arr_int_neurons, 0)
-        log.debug(i.X, i.Y)
+        self.creature.action_neuron_state = dict.fromkeys(
+            self.arr_action, 0)
+        self.creature.int_neuron_state = dict.fromkeys(
+            self.arr_int_neurons, 0)
+        log.debug(self.creature.X, self.creature.Y)
 
     def calculate_outputs_neurons(self):
         # Calculate output neurons =tanh(sum(input)) = -1..1 for action and internals
@@ -343,8 +346,8 @@ class Genome:
             self.creature.action_neuron_state[f[0]] = np.tanh(np.sum(inputs))
 
         log.debug('Iteration over, executing action neurons')
-        log.debug(i.action_neuron_state)
-        log.debug(i.int_neuron_state)
+        log.debug(self.creature.action_neuron_state)
+        log.debug(self.creature.int_neuron_state)
 
     def calculate_synapses(self):
         log.debug(self.creature.last_dir, self.creature.X, self.creature.Y)
