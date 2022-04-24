@@ -14,7 +14,7 @@ log.setLevel(logging.INFO)
 
 
 def get_text(id, X, population_size,
-             gene_size, num_int_neuron,
+             gene_size, num_int_neuron, mutation_rate,
              num_steps, num_step, num_rounds, num_round):
     text = f"""Simulation enviroment:
 {id}
@@ -23,10 +23,16 @@ grid_size:           {X}
 population_size:     {population_size}
 gene_size:           {gene_size}
 num_int_neuron:      {num_int_neuron}
+mutation_rate:       {mutation_rate}
 num_steps:           {num_steps}/{num_step}
 max_round:"          {num_rounds}/{num_round}"""
 
     return text
+
+
+class SelectionCriterias(Enum):
+    LEFT_SIDE = 0
+    RIGHT_SIDE = 1
 
 
 class SelectionCriteria:
@@ -40,10 +46,10 @@ class SelectionCriteria:
         self.criteria_type = criteria_type
         self.creature = creature
 
-    def eval_criteria(criteria_type: str, creature: Creature):
-        if criteria_type == "LEFT_SIDE":
+    def eval_criteria(self):
+        if self.criteria_type == SelectionCriterias.LEFT_SIDE:
             pass
-        if criteria_type == "RIGHT_SIDE":
+        if self.criteria_type == SelectionCriterias.RIGHT_SIDE:
             pass
 
 
@@ -79,6 +85,7 @@ class SimEnv:
         arr_int_neurons = [
             x+len_sensory for x in np.arange(self.num_int_neuron)]
 
+        # [] need to reorg this into Creatures module
         # Iterating over creatures and evaluating their genes for a step in a round
         for i in self.creature_array:
             sensory = Sensory(i)
@@ -176,7 +183,7 @@ class SimEnv:
         plt.figure(figsize=(10, 5))
         plt.imshow(image, origin='lower', resample=False, alpha=1)
         text_str = get_text(self.id, self.X, self.population_size,
-                            self.gene_size, self.num_int_neuron,
+                            self.gene_size, self.num_int_neuron, self.mutation_rate,
                             self.num_steps, self.num_step,
                             self.num_rounds, self.num_round)
         # these are matplotlib.patch.Patch properties
@@ -208,7 +215,10 @@ class SimEnv:
     def create_log(self):
         pass
 
-    def __init__(self, size: int, population_size: int, num_steps: int, num_rounds: int, gene_size: int, num_int_neuron: int):
+    def __init__(self, size: int, population_size: int,
+                 num_steps: int, num_rounds: int,
+                 gene_size: int, num_int_neuron: int,
+                 mutation_rate: int):
         """Enviroment initialization
 
         Args:
@@ -228,6 +238,7 @@ class SimEnv:
         # Init population
         self.population_size = population_size
         self.init_population(self.population_size)
+        self.mutation_rate = mutation_rate
 
         # Init enviroment utils
         self.log = pd.DataFrame()
