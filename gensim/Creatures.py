@@ -1,5 +1,3 @@
-from operator import inv
-import sys
 import os
 import logging
 import math
@@ -10,7 +8,6 @@ import numpy as np
 from enum import Enum
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
 
 
 def generate_pixels_around(grid_size: int, current_location: tuple):
@@ -63,6 +60,7 @@ class Creature:
     def __init__(self, env, gene_size: int, num_int_neuron: int):
         # General info
         self.id = uuid.uuid4()
+        self.id_short = {str(self.id)[:8]}
         self.env = env
         self.sim_id = env.sim_dir
 
@@ -73,7 +71,8 @@ class Creature:
             np.random.randint(len(Directions))]]
 
         # Setting oscillator with a random init frequency
-        self.oscillator = Oscillator(np.random.uniform(1, 5))
+        freq = np.random.uniform(1, 5)
+        self.oscillator = Oscillator(freq=freq, max_lenght=self.env.num_steps)
 
         # Setting init attributes
         self.age = 0
@@ -86,7 +85,7 @@ class Creature:
             gene_size=gene_size, num_int_neuron=num_int_neuron, creature=self)
         self.gene_array = self.genome.genome
         log.info(
-            f"Creature {str(self.id)[:8]} neuron array:\n{self.gene_array}")
+            f"Creature {self.id_short} neuron array:\n{self.gene_array}")
 
         # Calculate required info
         len_sensory = len(SensoryNeurons)
@@ -109,13 +108,14 @@ class Oscillator:
         freq = np.interp(freq, [-4, 4], [1, 5])
         assert 5 >= freq >= 1, "Use value between 5 and 1"
         self.freq = freq
-        time = np.arange(0, 100, 0.1)
+        time = np.arange(0, self.max_lenght, 0.1)
         signal = np.sin(time / self.freq) + 1
         self.signal = signal
 
-    def __init__(self, freq: float):
+    def __init__(self, freq: float, max_lenght: int):
         self.freq = freq
-        self.set_period(self.freq)
+        self.max_lenght = max_lenght
+        self.set_period(freq=self.freq)
         self.max_value = max(self.signal)
 
 # 1. Sx - location on the X axis
@@ -257,6 +257,11 @@ class Action:
         self.dir_keys = [e.name for e in Directions]
         self.max_loc = self.creature.env.X - 1
 
+        log.debug(f"self.loc: {self.loc}")
+
+    def update_loc(self):
+        self.loc = [self.creature.X, self.creature.Y]
+
     def update_last_direction(self, last_loc: tuple, new_loc: tuple):
         last_dir = tuple([x-last_loc[idx] for idx, x in enumerate(new_loc)])
         try:
@@ -267,6 +272,11 @@ class Action:
             return
 
     def move(self, direction: Directions, value: float = 1):
+        log.debug(f"Initial_loc: {self.loc}")
+        log.debug(f"Moving in direction {direction} - {value}")
+
+        # Update current creature location
+        self.loc = [self.creature.X, self.creature.Y]
         new_loc = [(x + (direction.value[idx]) * value)
                    for idx, x in enumerate(self.loc)]
         # Round pixel values
@@ -278,6 +288,7 @@ class Action:
         # Update direction according to last loc change
         self.update_last_direction(last_loc=self.loc, new_loc=new_loc)
         self.loc = new_loc
+        log.debug(f"New_loc: {new_loc} self.loc: {self.loc}")
         return new_loc
 
     def move_fr(self, value: float):
@@ -323,34 +334,40 @@ class Genome:
 
     def execute_neuron_states(self):
         # Execute for all action neurons
-        for h in self.creature.action_neuron_state.items():
+        for h in self.action_neuron_state.items():
             if h[1]:
+                log.debug(
+                    f"Executing {ActionNeurons(h[0]).name} with value: {h[1]}")
                 getattr(self.action, ActionNeurons(h[0]).name)(h[1])
-                log.debug(self.creature.last_dir,
-                          self.creature.X, self.creature.Y)
+                log.debug(
+                    f"Executed {ActionNeurons(h[0]).name}, new position of creature: {self.creature.id_short, self.creature.last_dir,self.creature.X, self.creature.Y}")
             # [] need to multiply by synapse weights also
-        self.creature.action_neuron_state = dict.fromkeys(
+        self.action_neuron_state = dict.fromkeys(
             self.arr_action, 0)
-        self.creature.int_neuron_state = dict.fromkeys(
+        self.int_neuron_state = dict.fromkeys(
             self.arr_int_neurons, 0)
-        log.debug(self.creature.X, self.creature.Y)
+        log.debug(
+            f"{self.creature.id_short, self.creature.X, self.creature.Y}")
 
     def calculate_outputs_neurons(self):
         # Calculate output neurons =tanh(sum(input)) = -1..1 for action and internals
-        for f in self.creature.int_neuron_state.items():
-            inputs = np.array(self.creature.int_neuron_state[f[0]])
-            self.creature.int_neuron_state[f[0]] = np.tanh(np.sum(inputs))
+        for f in self.int_neuron_state.items():
+            inputs = np.array(self.int_neuron_state[f[0]])
+            self.int_neuron_state[f[0]] = np.tanh(np.sum(inputs))
 
-        for f in self.creature.action_neuron_state.items():
-            inputs = np.array(self.creature.action_neuron_state[f[0]])
-            self.creature.action_neuron_state[f[0]] = np.tanh(np.sum(inputs))
+        for f in self.action_neuron_state.items():
+            inputs = np.array(self.action_neuron_state[f[0]])
+            self.action_neuron_state[f[0]] = np.tanh(np.sum(inputs))
 
         log.debug('Iteration over, executing action neurons')
-        log.debug(self.creature.action_neuron_state)
-        log.debug(self.creature.int_neuron_state)
+        log.debug(
+            f"Creature action neuron state: {self.creature.id_short} {self.action_neuron_state}")
+        log.debug(
+            f"Creature internal neuron state: {self.creature.id_short} {self.int_neuron_state}")
 
     def calculate_synapses(self):
-        log.debug(self.creature.last_dir, self.creature.X, self.creature.Y)
+        log.debug(
+            f"Creature {self.creature.id_short} {self.creature.last_dir, self.creature.X, self.creature.Y}")
         # [ 1., 12., 0., 1.,  0.09899215]
         # [ 0., 6., 1., 14., -2.21110532]
         # Sensory neurons output 0..1
@@ -365,24 +382,25 @@ class Genome:
                     self.sensory, SensoryNeurons(gene[1]).name)()
             # If input source is internal neuron
             if gene[1] in self.arr_int_neurons:
-                input_val = self.creature.int_neuron_state[gene[1]]
+                input_val = self.int_neuron_state[gene[1]]
 
-            log.debug(gene, self.creature.X, self.creature.Y, input_val)
-            log.debug(SensoryNeurons(gene[1]).name if gene[1] in self.arr_sensory else gene[1], ActionNeurons(
-                gene[3]).name if gene[3] in self.arr_action else gene[3])
+            log.debug(
+                f"Creature {self.creature.id_short} genome: {gene, self.creature.X, self.creature.Y, input_val, SensoryNeurons(gene[1]).name if gene[1] in self.arr_sensory else gene[1], ActionNeurons(gene[3]).name if gene[3] in self.arr_action else gene[3]}")
 
             # If output destination is action neuron
             if gene[3] in self.arr_action:
                 # getattr(action, ActionNeurons(gene(3)).name)(input_val)
-                self.creature.action_neuron_state[gene[3]
-                                                  ] = self.creature.action_neuron_state[gene[3]] + input_val
+                self.action_neuron_state[gene[3]
+                                         ] = self.action_neuron_state[gene[3]] + input_val
             # If output destination is internal neuron
             if gene[3] in self.arr_int_neurons:
-                self.creature.int_neuron_state[gene[3]
-                                               ] = self.creature.int_neuron_state[gene[3]] + input_val
+                self.int_neuron_state[gene[3]
+                                      ] = self.int_neuron_state[gene[3]] + input_val
 
-            log.debug(self.creature.action_neuron_state)
-            log.debug(self.creature.int_neuron_state)
+            log.debug(
+                f"Creature action neuron state: {self.creature.id_short} {self.action_neuron_state}")
+            log.debug(
+                f"Creature internal neuron state: {self.creature.id_short} {self.int_neuron_state}")
 
     def generate_int_neuron_list(self, num_int_neuron: int):
         len_action = len(SensoryNeurons)
@@ -402,8 +420,9 @@ class Genome:
         to_neuron_id = np.random.randint(
             max_action_len) if destination_type == 0 else int(np.random.choice(int_neuron_arr, 1))
 
-        # Setting synapse weight between 1 and 5
+        # Setting synapse weight between 1 and 5, rounding to 3 digits
         synapse_weight = np.random.uniform(low=-5, high=5)
+        synapse_weight = round(synapse_weight, 3)
 
         array = np.array([source_type, from_neuron_id,
                          destination_type, to_neuron_id, synapse_weight])
@@ -445,6 +464,10 @@ class Genome:
         self.arr_action = [x.value for x in list(ActionNeurons)]
         self.arr_int_neurons = [
             x + self.len_sensory for x in np.arange(self.num_int_neuron)]
+
+        # Init neuron states
+        self.action_neuron_state = dict.fromkeys(self.arr_action, 0)
+        self.int_neuron_state = dict.fromkeys(self.arr_int_neurons, 0)
 
 
 class SensoryNeurons(Enum):
