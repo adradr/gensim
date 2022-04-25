@@ -7,10 +7,11 @@ import pandas as pd
 import imageio
 import matplotlib.pyplot as plt
 from tqdm.contrib.concurrent import thread_map
+from concurrent.futures import ThreadPoolExecutor
 
 from gensim.Creatures import *
 
-log = logging.getLogger(__name__)
+log = logging.getLogger('gensim')
 
 
 def get_text(id, X, population_size,
@@ -76,21 +77,48 @@ class SimEnv:
             occupied_pixels.append((i.X, i.Y))
         return occupied_pixels
 
-    def step(self):
+    def step(self, multithreading: bool = False):
         # Multithreading
-        def calc_syn(i):
-            i.genome.calculate_synapses()
+        def calc_sensory_syn(i):
+            i.genome.calculate_sensory_synapses()
 
-        def calc_output(i):
-            i.genome.calculate_outputs_neurons()
+        def calc_int_syn(i):
+            i.genome.calculate_internal_synapses()
+
+        def calc_int_output(i):
+            i.genome.calculate_internal_outputs_neurons()
+
+        def calc_act_output(i):
+            i.genome.calculate_action_outputs_neurons()
 
         def execute_output(i):
             i.genome.execute_neuron_states()
 
-        inputs = [x for x in self.creature_array]
-        thread_map(calc_syn, inputs)
-        thread_map(calc_output, inputs)
-        thread_map(execute_output, inputs)
+        if multithreading:
+            n_threads = len(self.creature_array)
+            with ThreadPoolExecutor(n_threads) as executor:
+                # Calculate sensory inputs
+                [executor.submit(calc_sensory_syn, cr)
+                 for cr in self.creature_array]
+                # Calculate internal outputs
+                [executor.submit(calc_int_output, cr)
+                 for cr in self.creature_array]
+                # Calculate internals inputs
+                [executor.submit(calc_int_syn, cr)
+                 for cr in self.creature_array]
+                # Calculate action inputs
+                [executor.submit(calc_act_output, cr)
+                 for cr in self.creature_array]
+                # Execute outputss on actions
+                [executor.submit(execute_output, cr)
+                 for cr in self.creature_array]
+        else:
+            for cr in self.creature_array:
+                calc_sensory_syn(cr)
+                calc_int_output(cr)
+                calc_int_syn(cr)
+                calc_act_output(cr)
+                execute_output(cr)
 
         # żaving image
         image = self.create_img()
@@ -122,7 +150,7 @@ class SimEnv:
             image[i.X, i.Y] = hex_to_rgb(i.get_genome_hash())
         # Save image as result.png
         filename = self.sim_subdir + str(self.num_step) + '.png'
-        #cv2.imwrite(filename, image)
+        # cv2.imwrite(filename, image)
         # self.img_arr.append(image)
         return image
 
@@ -175,7 +203,7 @@ class SimEnv:
         """Enviroment initialization
 
         Args:
-            size (int): size of the grid in pixels size * size 
+            size (int): size of the grid in pixels size * size
             population_size (int): number of creatures to initialize
             num_steps (int): number of steps in a round, each step is an action for a creature
         """
@@ -196,35 +224,68 @@ class SimEnv:
         # Init enviroment utils
         self.log = pd.DataFrame()
         self.id = uuid.uuid4()
-        #self.img_arr = []
+        # self.img_arr = []
         self.img_paths = []
 
         # Create folder for simulation
         now = datetime.datetime.now()
         date_time = now.strftime("%m_%d_%Y_%H_%M_%S")
         dir_path = 'simulations/' + date_time + '/'
-        subdir_path = dir_path + 'frames/'
         os.makedirs(dir_path, exist_ok=False)
+        subdir_gene = dir_path + 'genomes/'
+        os.makedirs(subdir_gene, exist_ok=False)
+        subdir_path = dir_path + 'frames/'
         os.makedirs(subdir_path, exist_ok=False)
         self.sim_dir = dir_path
         self.sim_subdir = subdir_path
+        self.sim_gendir = subdir_gene
         self.anim_path_mp4 = self.sim_dir + 'animation.mp4'
         self.anim_path_gif = self.sim_dir + 'animation.gif'
 
         # Init Creatures
         self.num_int_neuron = num_int_neuron
         self.gene_size = gene_size
-        creature_array = []
-        for i in self.random_locations:
+        # [x] implement multithreading
+        # [x] implement genome image saving in genome/ folder
+
+        def create_cr(gene_size: int, num_int_neuron: int):
             cr = Creature(env=self,
                           gene_size=gene_size,
                           num_int_neuron=num_int_neuron)
-            cr.X = i[0]
-            cr.Y = i[1]
-            cr.genome.action.update_loc()
-            creature_array.append(cr)
-            log.debug(f"env new self.loc: {cr.genome.action.loc}")
-        self.creature_array = creature_array
+            self.creature_array.append(cr)
+
+        def save_cr_genome_img(cr):
+            cr.create_graph_img(False)
+
+        # Generating creature multithread
+        self.creature_array = []
+        n_threads = len(self.random_locations)
+        with ThreadPoolExecutor(n_threads) as executor:
+            # Generating creature
+            [executor.submit(create_cr, gene_size=gene_size,
+                             num_int_neuron=num_int_neuron) for cr in range(n_threads)]
+            # Generating creature genome image
+            [executor.submit(save_cr_genome_img, cr)
+             for cr in self.creature_array]
+
+        for idx, i in enumerate(self.random_locations):
+            self.creature_array[idx].X = i[0]
+            self.creature_array[idx].Y = i[1]
+            self.creature_array[idx].genome.action.update_loc()
+        log.info(f"Creatures generated.")
+
+        # creature_array = []
+        # for i in self.random_locations:
+        #     cr = Creature(env=self,
+        #                   gene_size=gene_size,
+        #                   num_int_neuron=num_int_neuron)
+        #     cr.X = i[0]
+        #     cr.Y = i[1]
+        #     cr.genome.action.update_loc()
+        #     creature_array.append(cr)
+        #     log.debug(f"env new self.loc: {cr.genome.action.loc}")
+        # self.creature_array = creature_array
+        # log.info(f"Creatures generated.")
 
         # Store occupied pixels
         self.occupied_pixels = self.calc_occupied_pixels()
