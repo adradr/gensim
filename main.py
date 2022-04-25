@@ -5,6 +5,7 @@ import gensim
 from gensim import *
 
 LOGGING_LEVEL = logging.INFO
+MULTITHREADING = False
 log = logging.getLogger('gensim')
 logging.basicConfig(format="%(asctime)s - %(message)s")
 log.setLevel(LOGGING_LEVEL)
@@ -17,10 +18,8 @@ if (__name__ == "__main__"):
                             num_steps=50,
                             num_rounds=10,
                             gene_size=20,
-                            num_int_neuron=3, mutation_rate=0.01)
+                            num_int_neuron=3, mutation_rate=0.01, multithreading=MULTITHREADING)
     log.info(f"Enviroment created: {env.id}")
-
-    print(len(env.creature_array))
 
     # Iterate over steps
     log.info(f"Iterating enviroment steps: {env.id}")

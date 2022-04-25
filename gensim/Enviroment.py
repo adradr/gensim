@@ -77,7 +77,7 @@ class SimEnv:
             occupied_pixels.append((i.X, i.Y))
         return occupied_pixels
 
-    def step(self, multithreading: bool = False):
+    def step(self):
         # Multithreading
         def calc_sensory_syn(i):
             i.genome.calculate_sensory_synapses()
@@ -94,7 +94,7 @@ class SimEnv:
         def execute_output(i):
             i.genome.execute_neuron_states()
 
-        if multithreading:
+        if self.multithreading:
             n_threads = len(self.creature_array)
             with ThreadPoolExecutor(n_threads) as executor:
                 # Calculate sensory inputs
@@ -199,7 +199,7 @@ class SimEnv:
     def __init__(self, size: int, population_size: int,
                  num_steps: int, num_rounds: int,
                  gene_size: int, num_int_neuron: int,
-                 mutation_rate: int):
+                 mutation_rate: int, multithreading: bool = False):
         """Enviroment initialization
 
         Args:
@@ -224,7 +224,7 @@ class SimEnv:
         # Init enviroment utils
         self.log = pd.DataFrame()
         self.id = uuid.uuid4()
-        # self.img_arr = []
+        self.multithreading = multithreading
         self.img_paths = []
 
         # Create folder for simulation
