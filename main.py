@@ -2,35 +2,32 @@ import logging
 import pickle
 from tqdm import tqdm, trange
 import gensim
+from gensim import *
 
 LOGGING_LEVEL = logging.INFO
-
-logging.basicConfig(format="%(asctime)s -  %(message)s")
-log = logging.getLogger(__name__)
-handler = logging.StreamHandler()
-handler.setStream(tqdm)  # <-- important
-handler = log.addHandler(handler)
-# Setting logging levels
+log = logging.getLogger('gensim')
+logging.basicConfig(format="%(asctime)s - %(message)s")
 log.setLevel(LOGGING_LEVEL)
-for i in gensim.__all__:
-    logging.getLogger(i).setLevel(LOGGING_LEVEL)
 
 if (__name__ == "__main__"):
     # Create enviroment
     log.info(f"Creating enviroment...")
-    env = gensim.Enviroment.SimEnv(size=100,
-                                   population_size=100,
-                                   num_steps=50,
-                                   num_rounds=20,
-                                   gene_size=10,
-                                   num_int_neuron=3, mutation_rate=0.01)
+    env = Enviroment.SimEnv(size=50,
+                            population_size=250,
+                            num_steps=50,
+                            num_rounds=10,
+                            gene_size=20,
+                            num_int_neuron=3, mutation_rate=0.01)
     log.info(f"Enviroment created: {env.id}")
+
+    print(len(env.creature_array))
 
     # Iterate over steps
     log.info(f"Iterating enviroment steps: {env.id}")
-    for i in trange(env.num_steps):
+    for i in range(env.num_steps):
+        log.info(
+            f"Iterating progress: {env.num_steps}/{i} ------------------------------------")
         env.step()
-        #log.info(f"Size of env obj: {getsize(env)}")
     log.info(f"Iterating enviroment finished: {env.id}")
 
     # Generate animation
