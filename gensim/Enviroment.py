@@ -259,33 +259,32 @@ class SimEnv:
 
         # Generating creature multithread
         self.creature_array = []
-        n_threads = len(self.random_locations)
-        with ThreadPoolExecutor(n_threads) as executor:
-            # Generating creature
-            [executor.submit(create_cr, gene_size=gene_size,
-                             num_int_neuron=num_int_neuron) for cr in range(n_threads)]
-            # Generating creature genome image
-            [executor.submit(save_cr_genome_img, cr)
-             for cr in self.creature_array]
+        if self.multithreading:
+            n_threads = len(self.random_locations)
+            with ThreadPoolExecutor(n_threads) as executor:
+                # Generating creature
+                [executor.submit(create_cr, gene_size=gene_size,
+                                 num_int_neuron=num_int_neuron) for cr in range(n_threads)]
+                # Generating creature genome image
+                [executor.submit(save_cr_genome_img, cr)
+                 for cr in self.creature_array]
 
-        for idx, i in enumerate(self.random_locations):
-            self.creature_array[idx].X = i[0]
-            self.creature_array[idx].Y = i[1]
-            self.creature_array[idx].genome.action.update_loc()
+            for idx, i in enumerate(self.random_locations):
+                self.creature_array[idx].X = i[0]
+                self.creature_array[idx].Y = i[1]
+                self.creature_array[idx].genome.action.update_loc()
+
+        else:
+            for i in self.random_locations:
+                cr = Creature(env=self,
+                              gene_size=gene_size,
+                              num_int_neuron=num_int_neuron)
+                cr.X = i[0]
+                cr.Y = i[1]
+                cr.genome.action.update_loc()
+                self.creature_array.append(cr)
+
         log.info(f"Creatures generated.")
-
-        # creature_array = []
-        # for i in self.random_locations:
-        #     cr = Creature(env=self,
-        #                   gene_size=gene_size,
-        #                   num_int_neuron=num_int_neuron)
-        #     cr.X = i[0]
-        #     cr.Y = i[1]
-        #     cr.genome.action.update_loc()
-        #     creature_array.append(cr)
-        #     log.debug(f"env new self.loc: {cr.genome.action.loc}")
-        # self.creature_array = creature_array
-        # log.info(f"Creatures generated.")
 
         # Store occupied pixels
         self.occupied_pixels = self.calc_occupied_pixels()

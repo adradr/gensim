@@ -312,6 +312,9 @@ class Action:
         # [] need to implement emit_pheromones
         pass
 
+# [] debug why are they moving north/east mostly?
+# [] need to multiply by synapse weights also
+
 
 class Genome:
     def get_gene_hash(self, neuron):
@@ -331,11 +334,9 @@ class Genome:
                 getattr(self.action, ActionNeurons(h[0]).name)(h[1])
                 log.debug(
                     f"{self.creature.id_short} Executed {ActionNeurons(h[0]).name}, new position of creature: {self.creature.id_short, self.creature.last_dir,self.creature.X, self.creature.Y}")
-        # [] need to multiply by synapse weights also
+
         # Reset neuron states
-        # dict.fromkeys(self.arr_action, [])
         self.action_neuron_state = {key: [] for key in self.arr_action}
-        # dict.fromkeys(self.arr_int_neurons, [])
         self.int_neuron_state = {key: [] for key in self.arr_int_neurons}
         log.debug(
             f"{self.creature.id_short, self.creature.X, self.creature.Y}")
@@ -390,7 +391,7 @@ class Genome:
         # Internal neurons input tanh(sum(inputs)) -1..1
         # Connection weights -5..5
 
-        # [] when using internal neuron as source it uses the array as value for input to the action neuron
+        # [x] when using internal neuron as source it uses the array as value for input to the action neuron
         # EXAMPLE: 2ef946be action neuron state:   {0: [0.02], 1: [-0.041666666666666664, 0.96], 2: [], 3: [0.02], 4: [[-1.0]], 5: [0.96], 6: []}
         # 1. calculate sensory sources - either add directly to action or internal
         # 2. sum internal neuron outputs
@@ -413,10 +414,6 @@ class Genome:
                 log.debug(
                     f"{self.creature.id_short} {self.creature.last_dir, self.creature.X, self.creature.Y, SensoryNeurons(gene[1]).name if gene[1] in self.arr_sensory else gene[1], ActionNeurons(gene[3]).name if gene[3] in self.arr_action else gene[3], input_val}")
 
-            # If input source is internal neuron
-            # elif gene[1] in self.arr_int_neurons:
-            #     input_val = self.int_neuron_state[gene[1]]
-
                 # If output destination is action neuron
                 if gene[3] in self.int_neuron_state:
                     self.int_neuron_state[gene[3]].append(input_val)
@@ -424,10 +421,6 @@ class Genome:
                 # If output destination is action neuron
                 if gene[3] in self.arr_action:
                     self.action_neuron_state[gene[3]].append(input_val)
-
-                    # If output destination is internal neuron
-                # elif gene[3] in self.arr_int_neurons:
-                #     self.int_neuron_state[gene[3]].append(input_val)
 
     def generate_int_neuron_list(self, num_int_neuron: int):
         len_action = len(SensoryNeurons)
