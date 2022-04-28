@@ -314,6 +314,7 @@ class Action:
 
 # [] debug why are they moving north/east mostly?
 # [] need to multiply by synapse weights also
+# [] create a better genome coloring method so similars are close in color
 
 
 class Genome:
