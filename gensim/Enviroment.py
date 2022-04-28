@@ -31,30 +31,10 @@ max_round:"          {num_rounds}/{num_round}"""
     return text
 
 
-class SelectionCriterias(Enum):
-    LEFT_SIDE = 0
-    RIGHT_SIDE = 1
-
-
-class SelectionCriteria:
-    def __init__(self, criteria_type: str, creature: Creature):
-        """SelectionCriteria initialization
-
-        Args:
-            criteria_type (str): type of the criteria to use
-            creature (Creature): Creature instance to calculate if it passes the selected criteria type
-        """
-        self.criteria_type = criteria_type
-        self.creature = creature
-
-    def eval_criteria(self):
-        if self.criteria_type == SelectionCriterias.LEFT_SIDE:
-            pass
-        if self.criteria_type == SelectionCriterias.RIGHT_SIDE:
-            pass
-
-
 class SimEnv:
+    def eval_round(self):
+        pass
+
     def init_population(self, population_size: int):
         def generate_grid_locations(size: int):
             x = np.linspace(start=0, stop=size-1, num=size).astype(int)
@@ -130,10 +110,11 @@ class SimEnv:
         # Increase step counter
         self.num_step += 1
 
-    def eval_round(self):
-        pass
-
     def create_img(self):
+
+        # [] need to create two layers: 1 for the grid, and an additional top layer with low alpha for the selection area
+        # # https://stackoverflow.com/questions/60398939/how-to-do-alpha-compositing-with-a-list-of-rgba-data-in-numpy-arrays 
+
         def hex_to_rgb(value):
             """Return (red, green, blue) for the color given as #rrggbb."""
             value = value.lstrip('#')
@@ -141,23 +122,36 @@ class SimEnv:
             tup = tuple(int(value[i:i + lv // 3], 16)
                         for i in range(0, lv, lv // 3))
             return np.array(tup)
-        # Generate image with OpenCV and place random dots
+        # Generate image with white pixels max alpha
         image = np.zeros((self.X, self.Y, 3), np.uint8)
         image.fill(255)
         # Fill with creatures painted black
         # rand_samples = np.random.randint(0, 100, size=(10, 2))
         for i in self.creature_array:
             image[i.X, i.Y] = hex_to_rgb(i.get_genome_hash())
+
+        # Create second layer of selection criteria
+        image_selection = np.zeros((self.X, self.Y, 3), np.uint8)
+        # Fill alpha channel with low values
+        image_selection.fill(255)
+        for i in self.selection_pixels:
+            image_selection[i[0], i[1]] = [105, 224, 137]
+        self.selection_pixels_img = image_selection
         # Save image as result.png
-        filename = self.sim_subdir + str(self.num_step) + '.png'
+        # filename = self.sim_subdir + str(self.num_step) + '.png'
         # cv2.imwrite(filename, image)
         # self.img_arr.append(image)
         return image
+
+    def new_method(self, image_selection):
+        image_selection[:, :, -1].fill(1)
 
     def save_plot(self, path: str, image: np.array):
         # Plotting single image
         plt.figure(figsize=(10, 5))
         plt.imshow(image, origin='lower', resample=False, alpha=1)
+        plt.imshow(self.selection_pixels_img,
+                   origin='lower', resample=False, alpha=0.4)
         text_str = get_text(self.id, self.X, self.population_size,
                             self.gene_size, self.num_int_neuron, self.mutation_rate,
                             self.num_steps, self.num_step,
@@ -199,7 +193,8 @@ class SimEnv:
     def __init__(self, size: int, population_size: int,
                  num_steps: int, num_rounds: int,
                  gene_size: int, num_int_neuron: int,
-                 mutation_rate: int, multithreading: bool = False):
+                 mutation_rate: int, selection_area_width_pct: int, criteria_type: str,
+                 multithreading: bool = False):
         """Enviroment initialization
 
         Args:
@@ -245,8 +240,6 @@ class SimEnv:
         # Init Creatures
         self.num_int_neuron = num_int_neuron
         self.gene_size = gene_size
-        # [x] implement multithreading
-        # [x] implement genome image saving in genome/ folder
 
         def create_cr(gene_size: int, num_int_neuron: int):
             cr = Creature(env=self,
@@ -289,3 +282,57 @@ class SimEnv:
         # Store occupied pixels
         self.occupied_pixels = self.calc_occupied_pixels()
         log.debug(f"Occupied pixels:\n{self.occupied_pixels}")
+
+        # Init selection criteria
+        self.criteria_type = criteria_type
+        self.selection_area_width_pct = selection_area_width_pct
+        self.selection = SelectionCriteria(
+            self.criteria_type, self.selection_area_width_pct, self)
+        self.selection_pixels = self.selection.calculate_area()
+
+
+class SelectionCriterias(Enum):
+    LEFT_SIDE = 0
+    RIGHT_SIDE = 1
+    BOTH_SIDE = 2
+
+
+class SelectionCriteria:
+    def __init__(self, criteria_type: str, area_width_pct: int, enviroment: SimEnv):
+        """SelectionCriteria initialization
+
+        Args:
+            criteria_type (str): type of the criteria to use
+            area_width_pct (int): percentage of the total width for the selection area in pixels
+        """
+        self.criteria_type = criteria_type
+        self.area_width_pct = area_width_pct
+        self.env = enviroment
+        self.size_x = self.env.X
+        self.size_y = self.env.Y
+
+    def calculate_area(self):
+        if self.criteria_type == SelectionCriterias.LEFT_SIDE:
+            pass
+        if self.criteria_type == SelectionCriterias.RIGHT_SIDE:
+            pass
+        if self.criteria_type == SelectionCriterias.BOTH_SIDE:
+            self.selection_pixels = []
+            pct_width = round(self.size_x * self.area_width_pct, 0)
+            #  Divide because two sides are split
+            pct_width = int(round(pct_width / 2, 0))
+            x_rightmost = self.size_x - pct_width
+            x_leftmost = pct_width
+            # Left side
+            x_list = range(0, pct_width)
+            y_list = range(0, self.size_y)
+            for x in x_list:
+                for y in y_list:
+                    self.selection_pixels.append((x, y))
+            # Left side
+            x_list = range(x_rightmost, self.size_x)
+            for x in x_list:
+                for y in y_list:
+                    self.selection_pixels.append((x, y))
+
+        return self.selection_pixels

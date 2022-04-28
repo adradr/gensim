@@ -3,6 +3,7 @@ import pickle
 from tqdm import tqdm, trange
 import gensim
 from gensim import *
+from gensim.Enviroment import SelectionCriterias
 
 LOGGING_LEVEL = logging.INFO
 MULTITHREADING = False
@@ -15,10 +16,12 @@ if (__name__ == "__main__"):
     log.info(f"Creating enviroment...")
     env = Enviroment.SimEnv(size=50,
                             population_size=250,
-                            num_steps=50,
+                            num_steps=5,
                             num_rounds=10,
                             gene_size=20,
-                            num_int_neuron=3, mutation_rate=0.01, multithreading=MULTITHREADING)
+                            num_int_neuron=3, mutation_rate=0.01,
+                            selection_area_width_pct=0.1, criteria_type=SelectionCriterias.BOTH_SIDE,
+                            multithreading=MULTITHREADING)
     log.info(f"Enviroment created: {env.id}")
 
     # Iterate over steps
