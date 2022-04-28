@@ -71,7 +71,7 @@ Creatures are using a synthetic internal oscillator which influences their senso
 
 Each sensory neuron outputs a float number (-1,+1) 
 
-### Type of neurons to consider
+### Type of neurons
 - sensory of internal or enviromental state
 - internal neuron
 - action neuron to interact in the enviroment
