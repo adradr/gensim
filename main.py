@@ -17,8 +17,8 @@ if (__name__ == "__main__"):
     # Create enviroment
     log.info(f"Creating enviroment...")
     env = Enviroment.SimEnv(size=100,
-                            population_size=2000,
-                            num_steps=500,
+                            population_size=200,
+                            num_steps=50,
                             num_rounds=10,
                             gene_size=10,
                             num_int_neuron=3, mutation_probability=0.01,
@@ -28,14 +28,16 @@ if (__name__ == "__main__"):
 
     # Iterate over steps
     start_time = time()
-
     log.info(f"Iterating enviroment steps: {env.id}")
     for i in range(env.num_steps):
-        interim_time = time()
-        iter_time = round(interim_time-start_time, 2)
-        log.info(
-            f"Iterating progress: {env.num_steps}/{i} {iter_time}s ---------------------------------")
+        step_time_start = time()
+        iter_time = round(step_time_start - start_time, 1)
         env.step()
+        step_time_end = time()
+        step_time = round(step_time_end - step_time_start, 1)
+        log.info(
+            f"Iterating progress: {env.num_steps}/{i} {step_time}s / {iter_time}s ---------------------------------")
+
     log.info(f"Iterating enviroment finished: {env.id}")
 
     # Generate animation
