@@ -126,6 +126,7 @@ class SimEnv:
 
         def execute_output(i):
             i.genome.execute_neuron_states()
+            self.occupied_pixels = self.calc_occupied_pixels()
 
         if self.multithreading > 1:
             with ThreadPoolExecutor(self.multithreading) as executor:
@@ -146,9 +147,11 @@ class SimEnv:
                            for cr in self.creature_array]
                 wait(futures)
                 # Execute outputss on actions
-                futures = [executor.submit(execute_output, cr)
-                           for cr in self.creature_array]
-                wait(futures)
+                # Cannot execute them in parallel as they need to check if there is a creature where they would move
+                # futures = [executor.submit(execute_output, cr)
+                #            for cr in self.creature_array]
+                # wait(futures)
+                [execute_output(cr) for cr in self.creature_array]
 
         elif self.multithreading == 1:
             for cr in self.creature_array:

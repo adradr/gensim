@@ -269,7 +269,7 @@ class LeftDirections(Enum):
 class Action:
     def __init__(self, creature: Creature):
         self.creature = creature
-        self.loc = [self.creature.X, self.creature.Y]
+        # self.loc = [self.creature.X, self.creature.Y]
         self.last_dir = self.creature.last_dir
         self.dir_values = [e.value for e in Directions]
         self.dir_keys = [e.name for e in Directions]
@@ -277,6 +277,9 @@ class Action:
 
     def update_loc(self):
         self.loc = [self.creature.X, self.creature.Y]
+
+    def update_cr_loc(self, new_loc):
+        [self.creature.X, self.creature.Y] = new_loc
 
     def update_last_direction(self, last_loc: tuple, new_loc: tuple):
         last_dir = tuple([x-last_loc[idx] for idx, x in enumerate(new_loc)])
@@ -287,11 +290,15 @@ class Action:
         except:
             return
 
-    # [] need to forbit to have multiple creatures move to the same pixel
+    # [x] need to forbid to have multiple creatures move to the same pixel
 
     def move(self, direction: Directions, value: float = 1):
         # Update current creature location
         self.loc = [self.creature.X, self.creature.Y]
+        # Get current occupied state
+        occupied_pixels = self.creature.env.occupied_pixels
+        occupied_pixels.remove(tuple(self.loc))
+        # Calculate new location
         new_loc = [(x + (direction.value[idx]) * value)
                    for idx, x in enumerate(self.loc)]
         # Round pixel values
@@ -300,6 +307,12 @@ class Action:
         new_loc = [0 if x < 0 else x for x in new_loc]
         # Check so neither coordinates cannot go above max, else set to max
         new_loc = [self.max_loc if x > self.max_loc else x for x in new_loc]
+        # Check if the pixel is not occupied yet, else reset location to current
+        log.debug(f"Loc - {self.creature.id_short} {self.loc, new_loc}")
+        if tuple(new_loc) in occupied_pixels:
+            log.debug(f"Loc collision! - {self.loc, new_loc}")
+            new_loc = self.loc
+
         # Update direction according to last loc change
         self.update_last_direction(last_loc=self.loc, new_loc=new_loc)
         self.loc = new_loc
@@ -308,27 +321,27 @@ class Action:
     def move_fr(self, value: float):
         direction = self.last_dir if value > 0 else OppositeDirections[self.last_dir.name].value
         new_loc = self.move(direction=direction, value=value)
-        [self.creature.X, self.creature.Y] = new_loc
+        self.update_cr_loc(new_loc=new_loc)
 
     def move_lr(self, value: float):
         direction = RightDirections[self.last_dir.name].value if value > 0 else LeftDirections[self.last_dir.name].value
         new_loc = self.move(direction=direction, value=value)
-        [self.creature.X, self.creature.Y] = new_loc
+        self.update_cr_loc(new_loc=new_loc)
 
     def move_ew(self, value: float):
         direction = Directions.EAST if value > 0 else Directions.WEST
         new_loc = self.move(direction=direction, value=value)
-        [self.creature.X, self.creature.Y] = new_loc
+        self.update_cr_loc(new_loc=new_loc)
 
     def move_ns(self, value: float):
         direction = Directions.NORTH if value > 0 else Directions.SOUTH
         new_loc = self.move(direction=direction, value=value)
-        [self.creature.X, self.creature.Y] = new_loc
+        self.update_cr_loc(new_loc=new_loc)
 
     def move_rn(self, value: float):
         rand_dir = Directions[np.random.choice(Directions._member_names_)]
         new_loc = self.move(rand_dir, value=value)
-        [self.creature.X, self.creature.Y] = new_loc
+        self.update_cr_loc(new_loc=new_loc)
 
     def set_osc(self, value: float):
         self.creature.oscillator.set_period(value)
@@ -376,6 +389,8 @@ class Genome:
                     f"{self.creature.id_short} Executing {ActionNeurons(h[0]).name} with value: {h[1]}")
                 # Multiply by synapse weight
                 getattr(self.action, ActionNeurons(h[0]).name)(h[1])
+                # Update occupied pixels after each new move
+                self.creature.env.occupied_pixels = self.creature.env.calc_occupied_pixels()
                 log.debug(
                     f"{self.creature.id_short} Executed {ActionNeurons(h[0]).name}, new position of creature: {self.creature.id_short, self.creature.last_dir,self.creature.X, self.creature.Y}")
 
