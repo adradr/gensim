@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import imageio
 import matplotlib.pyplot as plt
+from itertools import zip_longest
 from tqdm.contrib.concurrent import thread_map
 from concurrent.futures import ThreadPoolExecutor
 
@@ -33,9 +34,58 @@ max_round:"          {num_rounds}/{num_round}"""
 
 class SimEnv:
     def eval_round(self):
-        pass
+        # Evaluate survivors
+        survivors = self.selection.evaluate_survivors(
+            self.creature_array)
 
-    def init_population(self, population_size: int):
+        # Create a list for both sex
+        females = [x for x in survivors if x.sex == 1]
+        males = [x for x in survivors if x.sex == 0]
+
+        # Match the survivors based on sex
+        offsprings = []
+        remainder = 0
+        for m, f in zip_longest(males, females):
+            # If both are avaiable generate offsprings
+            if m and f:
+                new_creatures = [m, f]
+                for cr in new_creatures:
+                    # Randomly select genes from their parents
+                    cr.genome.set_random_genome_from_creatures(m, f)
+                    # Mutate if probability says so
+                    cr.genome.mutate_genome(self.mutation_probability)
+                    # Reinitialize offspring
+                    cr.reinit_offspring
+                    # Append to offspring array
+                    offsprings.append(cr)
+            # If either one of the parents missing increase remainder counter
+            elif m == None or f == None:
+                remainder += 2
+
+        # Generate remainder creatures by making more offsprings for successful parents
+        # Repeat previous flow and decrease remainder
+        # [] solve it more elegantly
+        for m, f in zip_longest(males, females):
+            if m and f:
+                new_creatures = [m, f]
+                for cr in new_creatures:
+                    cr.genome.set_random_genome_from_creatures(m, f)
+                    cr.genome.mutate_genome(self.mutation_probability)
+                    cr.reinit_offspring
+                    offsprings.append(cr)
+                # Decrease remainder until zero
+                remainder -= 2
+                if remainder == 0:
+                    break
+
+        # Set new population
+        self.creature_array = offsprings
+        # Increase round number
+        self.num_round += 1
+        # Reset step counter
+        self.num_step = 0
+
+    def set_random_locations(self, population_size: int):
         def generate_grid_locations(size: int):
             x = np.linspace(start=0, stop=size-1, num=size).astype(int)
             y = np.linspace(start=0, stop=size-1, num=size).astype(int)
@@ -50,6 +100,9 @@ class SimEnv:
 
         grid = generate_grid_locations(self.X)
         self.random_locations = sample_grid_locations(grid, population_size)
+        for (loc, cr) in zip(self.random_locations, self.creature_array):
+            cr.X = loc[0]
+            cr.Y = loc[1]
 
     def calc_occupied_pixels(self):
         occupied_pixels = []
@@ -100,7 +153,7 @@ class SimEnv:
                 calc_act_output(cr)
                 execute_output(cr)
 
-        # żaving image
+        # Saving image
         image = self.create_img()
         path = self.sim_subdir + str(self.num_step) + '.png'
         self.save_plot(path, image)
@@ -111,8 +164,7 @@ class SimEnv:
         self.num_step += 1
 
     def create_img(self):
-
-        # [] need to create two layers: 1 for the grid, and an additional top layer with low alpha for the selection area
+        # [x] need to create two layers: 1 for the grid, and an additional top layer with low alpha for the selection area
         # # https://stackoverflow.com/questions/60398939/how-to-do-alpha-compositing-with-a-list-of-rgba-data-in-numpy-arrays 
 
         def hex_to_rgb(value):
@@ -153,7 +205,7 @@ class SimEnv:
         plt.imshow(self.selection_pixels_img,
                    origin='lower', resample=False, alpha=0.4)
         text_str = get_text(self.id, self.X, self.population_size,
-                            self.gene_size, self.num_int_neuron, self.mutation_rate,
+                            self.gene_size, self.num_int_neuron, self.mutation_probability,
                             self.num_steps, self.num_step,
                             self.num_rounds, self.num_round)
         # these are matplotlib.patch.Patch properties
@@ -193,7 +245,7 @@ class SimEnv:
     def __init__(self, size: int, population_size: int,
                  num_steps: int, num_rounds: int,
                  gene_size: int, num_int_neuron: int,
-                 mutation_rate: int, selection_area_width_pct: int, criteria_type: str,
+                 mutation_probability: float, selection_area_width_pct: int, criteria_type: str,
                  multithreading: bool = False):
         """Enviroment initialization
 
@@ -213,8 +265,7 @@ class SimEnv:
 
         # Init population
         self.population_size = population_size
-        self.init_population(self.population_size)
-        self.mutation_rate = mutation_rate
+        self.mutation_probability = mutation_probability
 
         # Init enviroment utils
         self.log = pd.DataFrame()
@@ -241,13 +292,14 @@ class SimEnv:
         self.num_int_neuron = num_int_neuron
         self.gene_size = gene_size
 
-        def create_cr(gene_size: int, num_int_neuron: int):
+        def create_cr_multi(gene_size: int, num_int_neuron: int):
             cr = Creature(env=self,
                           gene_size=gene_size,
                           num_int_neuron=num_int_neuron)
             self.creature_array.append(cr)
+            cr.genome.action.update_loc()
 
-        def save_cr_genome_img(cr):
+        def save_cr_genome_img_multi(cr):
             cr.create_graph_img(False)
 
         # Generating creature multithread
@@ -256,32 +308,29 @@ class SimEnv:
             n_threads = len(self.random_locations)
             with ThreadPoolExecutor(n_threads) as executor:
                 # Generating creature
-                [executor.submit(create_cr, gene_size=gene_size,
+                [executor.submit(create_cr_multi, gene_size=gene_size,
                                  num_int_neuron=num_int_neuron) for cr in range(n_threads)]
                 # Generating creature genome image
-                [executor.submit(save_cr_genome_img, cr)
+                [executor.submit(save_cr_genome_img_multi, cr)
                  for cr in self.creature_array]
-
-            for idx, i in enumerate(self.random_locations):
-                self.creature_array[idx].X = i[0]
-                self.creature_array[idx].Y = i[1]
-                self.creature_array[idx].genome.action.update_loc()
-
         else:
-            for i in self.random_locations:
+            for i in range(self.population_size):
                 cr = Creature(env=self,
                               gene_size=gene_size,
                               num_int_neuron=num_int_neuron)
-                cr.X = i[0]
-                cr.Y = i[1]
                 cr.genome.action.update_loc()
                 self.creature_array.append(cr)
 
-        log.info(f"Creatures generated.")
+        # Putting creatures to a unique random location
+        self.set_random_locations(population_size=self.population_size)
+        # Update new locations in creatures
+        for cr in self.creature_array:
+            cr.genome.action.update_loc()
 
         # Store occupied pixels
         self.occupied_pixels = self.calc_occupied_pixels()
         log.debug(f"Occupied pixels:\n{self.occupied_pixels}")
+        log.info(f"Creatures generated.")
 
         # Init selection criteria
         self.criteria_type = criteria_type
@@ -336,3 +385,10 @@ class SelectionCriteria:
                     self.selection_pixels.append((x, y))
 
         return self.selection_pixels
+
+    def evaluate_survivors(self, creatures: list[Creature]):
+        self.survivor_creatures_arr = []
+        for i in creatures:
+            if (i.X, i.Y) in self.selection_pixels:
+                self.survivor_creatures_arr.append(i)
+        return self.survivor_creatures_arr
