@@ -300,7 +300,7 @@ class SimEnv:
             cr.genome.action.update_loc()
 
         def save_cr_genome_img_multi(cr):
-            cr.create_graph_img(False)
+            cr.create_graph_img(view_img=False)
 
         # Generating creature multithread
         self.creature_array = []
@@ -313,11 +313,13 @@ class SimEnv:
                 # Generating creature genome image
                 [executor.submit(save_cr_genome_img_multi, cr)
                  for cr in self.creature_array]
-        else:
+
+        elif not self.multithreading:
             for i in range(self.population_size):
                 cr = Creature(env=self,
                               gene_size=gene_size,
                               num_int_neuron=num_int_neuron)
+                cr.create_graph_img(view_img=False)
                 cr.genome.action.update_loc()
                 self.creature_array.append(cr)
 
