@@ -152,6 +152,14 @@ class Sensory:
     def map_0_1(self, value: int, max_value: int):
         return value / max_value
 
+    # y = 5
+    #
+    #
+    #       cr (4,2)
+    #
+    # # # # # #
+    # 0       x = 5
+
     def x_loc(self):
         x_loc = self.creature.X
         return self.map_0_1(x_loc, self.x_loc_max)
@@ -169,11 +177,11 @@ class Sensory:
         return self.map_0_1(dst_south, self.y_loc_max)
 
     def dst_west(self):
-        dst_west = self.creature.env.Y - self.creature.X
+        dst_west = self.creature.X
         return self.map_0_1(dst_west, self.x_loc_max)
 
     def dst_east(self):
-        dst_east = self.creature.X
+        dst_east = self.creature.env.X - self.creature.X
         return self.map_0_1(dst_east, self.x_loc_max)
 
     def density_around(self):
@@ -202,11 +210,6 @@ class Sensory:
 
     def pheromones_around(self):
         # [] need to implement get_pheromons_around
-        return 0
-
-    def sex(self):
-        # [] need to implement sex sensory
-        sex = self.creature.sex
         return 0
 
     def age(self):
@@ -441,51 +444,6 @@ class Genome:
                     for x in input_val:
                         self.action_neuron_state[gene[3]].append(x)
 
-        # for gene in self.genome:
-        #     # If input source is internal neuron
-        #     if gene[1] in self.arr_int_neurons:
-        #         input_val = self.int_neuron_state[gene[1]]
-        #         log.debug(
-        #             f"{self.creature.id_short} {self.creature.last_dir, self.creature.X, self.creature.Y, SensoryNeurons(gene[1]).name if gene[1] in self.arr_sensory else gene[1], ActionNeurons(gene[3]).name if gene[3] in self.arr_action else gene[3], input_val}")
-
-        #         # If output destination is internal neuron
-        #         if gene[3] in self.arr_int_neurons:
-        #             # Apply synapse weight
-        #             log.info(f"{input_val, type(input_val), gene[4]}")
-        #             if isinstance(input_val, list):
-        #                 input_val = [x * gene[4]
-        #                              for x in input_val]
-        #             else:
-        #                 input_val = input_val * gene[4]
-        #             # Add to neuron states
-        #             if not isinstance(self.int_neuron_state[gene[3]], list):
-        #                 self.int_neuron_state[gene[3]] = [
-        #                     self.int_neuron_state[gene[3]]]
-        #                 for x in input_val:
-        #                     self.int_neuron_state[gene[3]].append(x)
-        #             else:
-        #                 for x in input_val:
-        #                     self.int_neuron_state[gene[3]].append(x)
-
-        #         # If output destination is action neuron
-        #         if gene[3] in self.arr_action:
-        #             # Apply synapse weight
-        #             log.info(f"{input_val, type(input_val), gene[4]}")
-        #             if isinstance(input_val, list):
-        #                 input_val = [x * gene[4]
-        #                              for x in input_val]
-        #             else:
-        #                 input_val = input_val * gene[4]
-        #             # Add to neuron states
-        #             if not isinstance(self.action_neuron_state[gene[3]], list):
-        #                 self.action_neuron_state[gene[3]] = [
-        #                     self.action_neuron_state[gene[3]]]
-        #                 for x in input_val:
-        #                     self.action_neuron_state[gene[3]].append(x)
-        #             else:
-        #                 for x in input_val:
-        #                     self.action_neuron_state[gene[3]].append(x)
-
     def calculate_sensory_synapses(self):
 
         # [ 1., 12., 0., 1.,  0.09899215]
@@ -614,9 +572,8 @@ class SensoryNeurons(Enum):
     density_around = 6
     view_forward = 7
     pheromones_around = 8
-    sex = 9
-    age = 10
-    oscillator = 11
+    age = 9
+    oscillator = 10
 
 
 class ActionNeurons(Enum):

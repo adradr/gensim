@@ -69,8 +69,6 @@ Creatures are using a synthetic internal oscillator which influences their senso
 - Action neurons are acting upont `=tanh(sum(input)) = -1..1`
 - Connections has a weight between `-5..5`
 
-Each sensory neuron outputs a float number (-1,+1) 
-
 ### Type of neurons
 - sensory of internal or enviromental state
 - internal neuron
@@ -86,9 +84,8 @@ Each sensory neuron outputs a float number (-1,+1)
 6. density_around - density around: how many individuals are around (8 pixels)
 7. view_forward - view ahead forward: is there an individual in the next 3 pixels
 8. pheromones_around - pheromons detected around (5x5 pixels)
-9. sex - sex
-10. age - age
-11. oscillator - internal oscillator signal
+9. age - age
+10. oscillator - internal oscillator signal
 
 ### Action Neurons
 0. move_fr - move forward/reverse (based on previous direction)
@@ -98,3 +95,9 @@ Each sensory neuron outputs a float number (-1,+1)
 4. move_ns - move north/south
 5. set_osc - set oscillator period
 6. emit_pheromone - emit pheromone
+
+### Reproduction and mutation of creatures
+
+All creature have a gender and based on their gender random pairs of creatures are selected from the survivors at the end of each round. These creatures can reproduce by creating offsprings based on a random selection from their gene pool. This inheritance can introduce an amount of mutation in the inherited genome and allowing to create new traits for offsprings. 
+
+The mutation can happen based on a mutation rate, that controls the probability of a gene getting mutated in the offspring's genome. In case the a mutation happens then that particular gene gets randomly regenerated as it happens in the initialization of a new creature. 
