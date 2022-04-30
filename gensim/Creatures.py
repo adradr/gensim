@@ -365,9 +365,6 @@ class Genome:
         hash = hashlib.sha1(neuron).hexdigest()
         return str(hash)[:6]
 
-    def update_input(self, inputs: np.array):
-        self.inputs = inputs
-
     def execute_neuron_states(self):
         # Execute for all action neurons
         for h in self.action_neuron_state.items():
@@ -411,10 +408,20 @@ class Genome:
         log.debug(
             f"{self.creature.id_short} {self.creature.last_dir, self.creature.X, self.creature.Y}")
 
+        # [source_type][from_neuron_id][destination_type][to_neuron_id][synapse_weight]
+
         for gene in self.genome:
-            # If input source is internal neuron
+            # If input source is internal neuron
             if gene[1] in self.arr_int_neurons:
+                # Get input value from from_neuron_id of internal neuron state dict
                 input_val = self.int_neuron_state[gene[1]]
+                # Cast it to array if its not
+                if not isinstance(input_val, list):
+                    input_val = [input_val]
+
+                # Multiply input by its weight
+                input_val = [x * gene[4] for x in input_val]
+
                 log.debug(
                     f"{self.creature.id_short} {self.creature.last_dir, self.creature.X, self.creature.Y, SensoryNeurons(gene[1]).name if gene[1] in self.arr_sensory else gene[1], ActionNeurons(gene[3]).name if gene[3] in self.arr_action else gene[3], input_val}")
 
@@ -423,7 +430,61 @@ class Genome:
                     if not isinstance(self.int_neuron_state[gene[3]], list):
                         self.int_neuron_state[gene[3]] = [
                             self.int_neuron_state[gene[3]]]
-                        self.int_neuron_state[gene[3]].append(input_val)
+                    for x in input_val:
+                        self.int_neuron_state[gene[3]].append(x)
+
+                # If output destination is action neuron
+                if gene[3] in self.arr_action:
+                    if not isinstance(self.action_neuron_state[gene[3]], list):
+                        self.action_neuron_state[gene[3]] = [
+                            self.action_neuron_state[gene[3]]]
+                    for x in input_val:
+                        self.action_neuron_state[gene[3]].append(x)
+
+        # for gene in self.genome:
+        #     # If input source is internal neuron
+        #     if gene[1] in self.arr_int_neurons:
+        #         input_val = self.int_neuron_state[gene[1]]
+        #         log.debug(
+        #             f"{self.creature.id_short} {self.creature.last_dir, self.creature.X, self.creature.Y, SensoryNeurons(gene[1]).name if gene[1] in self.arr_sensory else gene[1], ActionNeurons(gene[3]).name if gene[3] in self.arr_action else gene[3], input_val}")
+
+        #         # If output destination is internal neuron
+        #         if gene[3] in self.arr_int_neurons:
+        #             # Apply synapse weight
+        #             log.info(f"{input_val, type(input_val), gene[4]}")
+        #             if isinstance(input_val, list):
+        #                 input_val = [x * gene[4]
+        #                              for x in input_val]
+        #             else:
+        #                 input_val = input_val * gene[4]
+        #             # Add to neuron states
+        #             if not isinstance(self.int_neuron_state[gene[3]], list):
+        #                 self.int_neuron_state[gene[3]] = [
+        #                     self.int_neuron_state[gene[3]]]
+        #                 for x in input_val:
+        #                     self.int_neuron_state[gene[3]].append(x)
+        #             else:
+        #                 for x in input_val:
+        #                     self.int_neuron_state[gene[3]].append(x)
+
+        #         # If output destination is action neuron
+        #         if gene[3] in self.arr_action:
+        #             # Apply synapse weight
+        #             log.info(f"{input_val, type(input_val), gene[4]}")
+        #             if isinstance(input_val, list):
+        #                 input_val = [x * gene[4]
+        #                              for x in input_val]
+        #             else:
+        #                 input_val = input_val * gene[4]
+        #             # Add to neuron states
+        #             if not isinstance(self.action_neuron_state[gene[3]], list):
+        #                 self.action_neuron_state[gene[3]] = [
+        #                     self.action_neuron_state[gene[3]]]
+        #                 for x in input_val:
+        #                     self.action_neuron_state[gene[3]].append(x)
+        #             else:
+        #                 for x in input_val:
+        #                     self.action_neuron_state[gene[3]].append(x)
 
     def calculate_sensory_synapses(self):
 
@@ -450,7 +511,6 @@ class Genome:
         # What happens when an internal neuron feeds itself?
 
         for gene in self.genome:
-
             # If input source is action
             if gene[1] in self.arr_sensory:
                 input_val = getattr(
@@ -458,11 +518,17 @@ class Genome:
                 log.debug(
                     f"{self.creature.id_short} {self.creature.last_dir, self.creature.X, self.creature.Y, SensoryNeurons(gene[1]).name if gene[1] in self.arr_sensory else gene[1], ActionNeurons(gene[3]).name if gene[3] in self.arr_action else gene[3], input_val}")
 
-                # If output destination is action neuron
+                # If output destination is internal neuron
+                # Apply synapse weight
+                input_val = input_val * gene[4]
+                # Add to neuron states
                 if gene[3] in self.int_neuron_state:
                     self.int_neuron_state[gene[3]].append(input_val)
 
                 # If output destination is action neuron
+                # Apply synapse weight
+                input_val = input_val * gene[4]
+                # Add to neuron states
                 if gene[3] in self.arr_action:
                     self.action_neuron_state[gene[3]].append(input_val)
 
