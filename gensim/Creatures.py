@@ -6,6 +6,7 @@ import hashlib
 import graphviz
 import numpy as np
 from enum import Enum
+from PyProbs import Probability as pr
 
 log = logging.getLogger('gensim')
 
@@ -56,6 +57,25 @@ class Creature:
     def get_genome_hash(self):
         hash = hashlib.sha1(self.gene_array).hexdigest()
         return str(hash)[:6]
+
+    def reinit_offspring(self):
+        # General info
+        self.id = uuid.uuid4()
+        self.id_short = str(self.id)[:8]
+
+        # Location data
+        self.X = 0
+        self.Y = 0
+        self.last_dir = Directions[Directions._member_names_[
+            np.random.randint(len(Directions))]]
+
+        # Setting oscillator with a random init frequency
+        freq = np.random.uniform(1, 5)
+        self.oscillator = Oscillator(freq=freq, max_lenght=self.env.num_steps)
+
+        # Setting init attributes
+        self.age = 0
+        self.sex = np.random.randint(2)  #  0 - male, 1 - female
 
     def __init__(self, env, gene_size: int, num_int_neuron: int):
         # General info
@@ -264,6 +284,8 @@ class Action:
         except:
             return
 
+    # [] need to forbit to have multiple creatures move to the same pixel
+
     def move(self, direction: Directions, value: float = 1):
         # Update current creature location
         self.loc = [self.creature.X, self.creature.Y]
@@ -318,6 +340,27 @@ class Action:
 
 
 class Genome:
+    def set_random_genome_from_creatures(self, creatures: tuple[Creature, Creature]):
+        # Get a list of genes from creatures, and reshape into a 2D array
+        gene_pool = np.array([x.genome.genome for x in creatures]).reshape(
+            5, creatures[0].gene_size*2)
+        # Generate a random list of genes picked from a list of creatures
+        gene_idx_selection = np.random.choice(
+            range(len(gene_pool)), creatures[0].gene_size)
+        # Select genes from parents' gene pool and save in self.genome
+        new_genome = [gene_pool[x] for x in gene_idx_selection]
+        self.genome = new_genome
+
+    def mutate_genome(self, mutation_probability: float):
+        # Going through the genome
+        for idx, gene in enumerate(self.genome):
+            # If probability is True
+            if pr.Prob(mutation_probability):
+                # Generate new gene, store it with the hash
+                gene = self.generate_gene(self.num_int_neuron)
+                self.genome[idx] = gene
+                self.get_gene_hash[idx] = self.get_gene_hash(gene)
+
     def get_gene_hash(self, neuron):
         hash = hashlib.sha1(neuron).hexdigest()
         return str(hash)[:6]
@@ -448,8 +491,6 @@ class Genome:
         array = np.array([source_type, from_neuron_id,
                          destination_type, to_neuron_id, synapse_weight])
 
-        # Getting hash
-        self.gene_hash.append(self.get_gene_hash(array))
         return array
 
     def generate_full_genome(self, gene_size: int, num_int_neuron: int):
@@ -458,8 +499,12 @@ class Genome:
         # Generate gene pool for Creature
         gene_array = []
         for i in range(gene_size):
-            gene_array.append(self.generate_gene(int_neuron_arr))
-        # convert to np array
+            gene = self.generate_gene(int_neuron_arr)
+            # Generating gene
+            gene_array.append(gene)
+            # Getting hash of gene and storing
+            self.gene_hash.append(self.get_gene_hash(gene))
+        # Convert to np array
         gene_array = np.array(gene_array)
         # Sort based on first gene
         gene_array = gene_array[gene_array[:, 0].argsort()]
