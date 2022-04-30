@@ -1,12 +1,14 @@
 import logging
 import pickle
+from time import time
 from tqdm import tqdm, trange
 import gensim
 from gensim import *
 from gensim.Enviroment import SelectionCriterias
 
 LOGGING_LEVEL = logging.INFO
-MULTITHREADING = False
+MULTITHREADING_NTHREADS = 10
+
 log = logging.getLogger('gensim')
 logging.basicConfig(format="%(asctime)s - %(message)s")
 log.setLevel(LOGGING_LEVEL)
@@ -14,24 +16,25 @@ log.setLevel(LOGGING_LEVEL)
 if (__name__ == "__main__"):
     # Create enviroment
     log.info(f"Creating enviroment...")
-    env = Enviroment.SimEnv(size=50,
-                            population_size=5,
-                            num_steps=5,
+    env = Enviroment.SimEnv(size=100,
+                            population_size=2000,
+                            num_steps=500,
                             num_rounds=10,
-                            gene_size=20,
+                            gene_size=10,
                             num_int_neuron=3, mutation_probability=0.01,
                             selection_area_width_pct=0.1, criteria_type=SelectionCriterias.BOTH_SIDE,
-                            multithreading=MULTITHREADING)
+                            multithreading=MULTITHREADING_NTHREADS)
     log.info(f"Enviroment created: {env.id}")
 
-    for cr in env.creature_array:
-        log.info(f"{cr.id_short, cr.X, cr.Y}")
-
     # Iterate over steps
+    start_time = time()
+
     log.info(f"Iterating enviroment steps: {env.id}")
     for i in range(env.num_steps):
+        interim_time = time()
+        iter_time = round(interim_time-start_time, 2)
         log.info(
-            f"Iterating progress: {env.num_steps}/{i} ------------------------------------")
+            f"Iterating progress: {env.num_steps}/{i} {iter_time}s ---------------------------------")
         env.step()
     log.info(f"Iterating enviroment finished: {env.id}")
 

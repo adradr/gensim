@@ -127,9 +127,8 @@ class SimEnv:
         def execute_output(i):
             i.genome.execute_neuron_states()
 
-        if self.multithreading:
-            n_threads = len(self.creature_array)
-            with ThreadPoolExecutor(n_threads) as executor:
+        if self.multithreading > 1:
+            with ThreadPoolExecutor(self.multithreading) as executor:
                 # Calculate sensory inputs
                 [executor.submit(calc_sensory_syn, cr)
                  for cr in self.creature_array]
@@ -246,7 +245,7 @@ class SimEnv:
                  num_steps: int, num_rounds: int,
                  gene_size: int, num_int_neuron: int,
                  mutation_probability: float, selection_area_width_pct: int, criteria_type: str,
-                 multithreading: bool = False):
+                 multithreading: int = 1):
         """Enviroment initialization
 
         Args:
@@ -296,20 +295,19 @@ class SimEnv:
             cr = Creature(env=self,
                           gene_size=gene_size,
                           num_int_neuron=num_int_neuron)
-            self.creature_array.append(cr)
             cr.genome.action.update_loc()
+            self.creature_array.append(cr)
 
         def save_cr_genome_img_multi(cr):
             cr.create_graph_img(view_img=False)
 
         # Generating creature multithread
         self.creature_array = []
-        if self.multithreading:
-            n_threads = len(self.random_locations)
-            with ThreadPoolExecutor(n_threads) as executor:
+        if self.multithreading > 1:
+            with ThreadPoolExecutor(self.multithreading) as executor:
                 # Generating creature
                 [executor.submit(create_cr_multi, gene_size=gene_size,
-                                 num_int_neuron=num_int_neuron) for cr in range(n_threads)]
+                                 num_int_neuron=num_int_neuron) for cr in range(self.population_size)]
                 # Generating creature genome image
                 [executor.submit(save_cr_genome_img_multi, cr)
                  for cr in self.creature_array]
