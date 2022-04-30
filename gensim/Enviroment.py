@@ -8,7 +8,7 @@ import imageio
 import matplotlib.pyplot as plt
 from itertools import zip_longest
 from tqdm.contrib.concurrent import thread_map
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 
 from gensim.Creatures import *
 
@@ -130,21 +130,27 @@ class SimEnv:
         if self.multithreading > 1:
             with ThreadPoolExecutor(self.multithreading) as executor:
                 # Calculate sensory inputs
-                [executor.submit(calc_sensory_syn, cr)
-                 for cr in self.creature_array]
+                futures = [executor.submit(calc_sensory_syn, cr)
+                           for cr in self.creature_array]
+                wait(futures)
                 # Calculate internal outputs
-                [executor.submit(calc_int_output, cr)
-                 for cr in self.creature_array]
+                futures = [executor.submit(calc_int_output, cr)
+                           for cr in self.creature_array]
+                wait(futures)
                 # Calculate internals inputs
-                [executor.submit(calc_int_syn, cr)
-                 for cr in self.creature_array]
+                futures = [executor.submit(calc_int_syn, cr)
+                           for cr in self.creature_array]
+                wait(futures)
                 # Calculate action inputs
-                [executor.submit(calc_act_output, cr)
-                 for cr in self.creature_array]
+                futures = [executor.submit(calc_act_output, cr)
+                           for cr in self.creature_array]
+                wait(futures)
                 # Execute outputss on actions
-                [executor.submit(execute_output, cr)
-                 for cr in self.creature_array]
-        else:
+                futures = [executor.submit(execute_output, cr)
+                           for cr in self.creature_array]
+                wait(futures)
+
+        elif self.multithreading == 1:
             for cr in self.creature_array:
                 calc_sensory_syn(cr)
                 calc_int_output(cr)
@@ -306,13 +312,15 @@ class SimEnv:
         if self.multithreading > 1:
             with ThreadPoolExecutor(self.multithreading) as executor:
                 # Generating creature
-                [executor.submit(create_cr_multi, gene_size=gene_size,
-                                 num_int_neuron=num_int_neuron) for cr in range(self.population_size)]
+                futures = [executor.submit(create_cr_multi, gene_size=gene_size,
+                                           num_int_neuron=num_int_neuron) for cr in range(self.population_size)]
+                wait(futures)
                 # Generating creature genome image
-                [executor.submit(save_cr_genome_img_multi, cr)
-                 for cr in self.creature_array]
+                futures = [executor.submit(save_cr_genome_img_multi, cr)
+                           for cr in self.creature_array]
+                wait(futures)
 
-        elif not self.multithreading:
+        elif self.multithreading == 1:
             for i in range(self.population_size):
                 cr = Creature(env=self,
                               gene_size=gene_size,
