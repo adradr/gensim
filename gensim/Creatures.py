@@ -157,7 +157,7 @@ class Sensory:
     # y = 5
     #
     #
-    #       cr (4,2)
+    #       x (4,2)
     #
     # # # # # #
     # 0       x = 5
@@ -353,7 +353,7 @@ class Action:
         pass
 
 # [] debug why are they moving north/east mostly?
-# [] need to multiply by synapse weights also
+# [x] need to multiply by synapse weights also
 # [] create a better genome coloring method so similars are close in color
 
 
@@ -385,16 +385,16 @@ class Genome:
 
     def execute_neuron_states(self):
         # Execute for all action neurons
-        for h in self.action_neuron_state.items():
-            if h[1]:
+        for k, v in self.action_neuron_state.items():
+            if v:
                 log.debug(
-                    f"{self.creature.id_short} Executing {ActionNeurons(h[0]).name} with value: {h[1]}")
+                    f"{self.creature.id_short} Executing {ActionNeurons(k).name} with value: {v}")
                 # Multiply by synapse weight
-                getattr(self.action, ActionNeurons(h[0]).name)(h[1])
+                getattr(self.action, ActionNeurons(k).name)(v)
                 # Update occupied pixels after each new move
                 self.creature.env.occupied_pixels = self.creature.env.calc_occupied_pixels()
                 log.debug(
-                    f"{self.creature.id_short} Executed {ActionNeurons(h[0]).name}, new position of creature: {self.creature.id_short, self.creature.last_dir,self.creature.X, self.creature.Y}")
+                    f"{self.creature.id_short} Executed {ActionNeurons(k).name}, new position of creature: {self.creature.id_short, self.creature.last_dir,self.creature.X, self.creature.Y}")
 
         # Reset neuron states
         self.action_neuron_state = {key: [] for key in self.arr_action}
