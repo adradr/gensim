@@ -92,14 +92,9 @@ class SimEnv:
             grid = np.array(np.meshgrid(x, y)).T.reshape(-1, 2)
             return grid
 
-        def sample_grid_locations(array: np.array, num_population: int):
-            selection = np.random.randint(
-                0, array.shape[0], size=(num_population))
-            mask = array[selection]
-            return mask
-
         grid = generate_grid_locations(self.X)
-        self.random_locations = sample_grid_locations(grid, population_size)
+        np.random.shuffle(grid)
+        self.random_locations = grid[:self.population_size]
         for (loc, cr) in zip(self.random_locations, self.creature_array):
             cr.X = loc[0]
             cr.Y = loc[1]
@@ -188,7 +183,7 @@ class SimEnv:
         # Fill with creatures painted black
         # rand_samples = np.random.randint(0, 100, size=(10, 2))
         for i in self.creature_array:
-            image[i.X, i.Y] = hex_to_rgb(i.get_genome_hash())
+            image[i.Y, i.X] = hex_to_rgb(i.get_genome_hash())
 
         # Create second layer of selection criteria
         image_selection = np.zeros((self.X, self.Y, 3), np.uint8)
@@ -349,6 +344,11 @@ class SimEnv:
         self.selection = SelectionCriteria(
             self.criteria_type, self.selection_area_width_pct, self)
         self.selection_pixels = self.selection.calculate_area()
+
+        # Saving first image
+        image = self.create_img()
+        path = self.sim_subdir + '0.png'
+        self.save_plot(path, image)
 
 
 class SelectionCriterias(Enum):
