@@ -58,7 +58,7 @@ To calculate the actions taken in each step for each creature the following calc
 
 ### Oscillator of creatures
 
-Creatures are using a synthetic internal oscillator which influences their sensory and action outputs. The underlying formula is a simple sinus wave to primitivly replicate a circadian rythm.
+Creatures are using a synthetic internal oscillator which influences their sensory and action outputs. The underlying formula is a simple sinus wave to replicate primitive a circadian rythm.
 
 ![sinus-wave-oscillator](img/oscillator.png)
 
