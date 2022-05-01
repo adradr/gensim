@@ -30,7 +30,8 @@ class Creature:
         save_path = f"{self.env.sim_gendir}{self.id_short}"
         dot = graphviz.Digraph(comment=genome_hash)
         dot.attr(ratio='auto', size='30',
-                 fontname="Helvetica", label=f"Creature id: {self.id_short}\nGenome hash: {genome_hash}\n{self.sim_id}")
+                 fontname="Helvetica", layout="neato", overlap="prism",
+                 label=f"Creature id: {self.id_short}\nGenome hash: {genome_hash}\n{self.sim_id}")
         for idx, i in enumerate(self.gene_array):
             # Node values
             idx_sensory = SensoryNeurons
@@ -46,9 +47,10 @@ class Creature:
             dot.node(a, style='filled', fillcolor=id_1_color)
             dot.node(b, style='filled', fillcolor=id_2_color)
             rounded_weight = round(i[4], 2)
-            edge_color = "#2117b0" if rounded_weight > 0 else "#b01726"
-            dot.edge(a, b, str(rounded_weight), {
-                     "penwidth": str(abs(rounded_weight+2)), "color": edge_color})
+            edge_color = "#30b854" if rounded_weight > 0 else "#b01726"
+            edge_width = str(abs(rounded_weight)+1)
+            dot.edge(a, b, '', {
+                     "penwidth": edge_width, "color": edge_color})
             # dot.unflatten(stagger=5)
         dot.render(save_path, view=view_img, format="png")
         # Remove dotfile
