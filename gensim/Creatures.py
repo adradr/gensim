@@ -1,6 +1,5 @@
 import os
 import logging
-import math
 import uuid
 import hashlib
 import graphviz
@@ -13,7 +12,7 @@ log = logging.getLogger('gensim')
 
 def generate_pixels_around(grid_size: int, current_location: tuple):
     # Getting a nullpoint for the grid_size * grid_size search grid
-    half_grid_size = math.ceil(grid_size/2)
+    half_grid_size = np.ceil(grid_size/2)
     null_point = [x-half_grid_size for x in current_location]
     # Creating the pixel locations in the pixels around creature
     density_loc_arr = []
