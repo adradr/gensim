@@ -12,7 +12,7 @@ log = logging.getLogger('gensim')
 
 def generate_pixels_around(grid_size: int, current_location: tuple):
     # Getting a nullpoint for the grid_size * grid_size search grid
-    half_grid_size = np.ceil(grid_size/2)
+    half_grid_size = np.ceil(grid_size/2).astype(int)
     null_point = [x-half_grid_size for x in current_location]
     # Creating the pixel locations in the pixels around creature
     density_loc_arr = []
@@ -322,7 +322,7 @@ class Action:
         new_loc = [(x + (direction.value[idx]) * value)
                    for idx, x in enumerate(self.loc)]
         # Round pixel values
-        new_loc = [np.round(x) for x in new_loc]
+        new_loc = [np.round(x).astype(int) for x in new_loc]
         # Check so neither coordinates cannot go below zero, else set to zero
         new_loc = [0 if x < 0 else x for x in new_loc]
         # Check so neither coordinates cannot go above max, else set to max
