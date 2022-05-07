@@ -45,11 +45,12 @@ To calculate the actions taken in each step for each creature the following calc
 
 ```
 | Sensory neurons output                            |  0..1 | 
-| Action neurons input      tanh(sum(inputs))       | -1..1 | 
-| Action neurons output                             | -4..4 | 
-| Internal neurons input    tanh(sum(inputs))       | -1..1 | 
+| Action neurons output       tanh(sum(inputs)) =>  | -1..1 | 
+| Internal neurons output     tanh(sum(inputs)) =>  | -1..1 | 
 | Connection weights                                | -5..5 | 
 ```
+
+Action neurons are firing based on their `tanh(sum(inputs))` with a value between -1..0 or 0..1. This value is also used as in its absolute value form to define the probability of firing for that neuron.
 
 ### Example of a genome structure
 
@@ -98,6 +99,6 @@ Creatures are using a synthetic internal oscillator which influences their senso
 
 ### Reproduction and mutation of creatures
 
-All creature have a gender and based on their gender random pairs of creatures are selected from the survivors at the end of each round. These creatures can reproduce by creating offsprings based on a random selection from their gene pool. This inheritance can introduce an amount of mutation in the inherited genome and allowing to create new traits for offsprings. 
+All creatures are evaluated based on the selection criteria. These survivor creatures can reproduce by creating offsprings based on a random selection from their gene pool. This inheritance can introduce an amount of mutation in the inherited genome and allowing to create new traits for offsprings. 
 
 The mutation can happen based on a mutation rate, that controls the probability of a gene getting mutated in the offspring's genome. In case the a mutation happens then that particular gene gets randomly regenerated as it happens in the initialization of a new creature. 
