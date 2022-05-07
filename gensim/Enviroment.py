@@ -1,14 +1,15 @@
 import os
 import datetime
 import logging
+import sys
 import uuid
 import numpy as np
 import pandas as pd
 import imageio
 import random
+import copy
+from time import time
 import matplotlib.pyplot as plt
-from itertools import zip_longest
-from tqdm.contrib.concurrent import thread_map
 from concurrent.futures import ThreadPoolExecutor, wait
 
 from gensim.Creatures import *
@@ -28,48 +29,162 @@ gene_size:           {gene_size}
 num_int_neuron:      {num_int_neuron}
 mutation_rate:       {mutation_rate}
 num_steps:           {num_steps}/{num_step}
-max_round:"          {num_rounds}/{num_round}"""
+num_round:           {num_rounds}/{num_round}"""
 
     return text
 
 
 class SimEnv:
 
-    def eval_round(self):
-        # Utility function
-        def pairwise(t):
-            it = iter(t)
-            return zip(it, it)
+    def eval_env(self):
+        # Store start time
+        timer = {"start": time(), "step_start": time(),
+                 "round_start": time()}
 
+        # Iterate over enviroment
+        for idx_round in range(self.num_rounds):
+            for idx_step in range(self.num_steps):
+                # Calculate step
+                self.eval_step()
+                timer["step"] = round(time() - timer["step_start"], 1)
+                timer["step_start"] = time()
+                timer["round"] = round(time() - timer["round_start"], 1)
+                timer["iter"] = round(time() - timer["start"], 1)
+                # Log progress
+                log.debug(
+                    f"Iterating progress (step/round/total): {self.num_steps}/{idx_step+1} {timer['step']}s / {self.num_rounds}/{idx_round+1} {timer['round']}s / {timer['iter']}s ---------------------------------")
+            # Evaluate generation if num steps reached max
+            self.eval_round()
+            log.info(
+                f"Iterating progress: {self.num_rounds}/{idx_round+1} {timer['round']}s / {timer['iter']}s ---------------------------------")
+
+            timer["round_start"] = time()
+
+    def eval_round(self):
+        log.debug(f"Eval round:{self.num_round}")
         # Evaluate survivors
         survivors = self.selection.evaluate_survivors(
             self.creature_array)
         # Remove an element if uneven
         if len(survivors) % 2 == 1:
             survivors.pop()
+            if len(survivors) == 0:
+                log.info("No creatures survived. Exiting...")
+                sys.exit(1)
         # Shuffle list randomly
         random.shuffle(survivors)
 
         # Match the survivors based randomly
         offsprings = []
 
-        for pair in pairwise(survivors):
-            for cr in pair:
-                # Randomly select genes from their parents
-                cr.genome.set_random_genome_from_creatures(m, f)
+        # Multithreading
+        def threaded_loop():
+            # Get an instance to work with from the survivor list
+            choice = np.random.choice(survivors, 1)[0]
+            cr = copy.deepcopy(choice)
+            # Randomly select genes from their survivor parents
+            cr.genome.set_random_genome_from_creatures(survivors)
+            # Mutate if probability says so
+            cr.genome.mutate_genome(self.mutation_probability)
+            # Reinitialize offspring
+            cr.reinit_offspring()
+            # Append to offspring array
+            offsprings.append(cr)
+
+        if self.multithreading > 1:
+            with ThreadPoolExecutor(self.multithreading) as executor:
+                futures = [executor.submit(threaded_loop)
+                           for i in range(self.population_size)]
+                wait(futures)
+
+        # Single threading
+        elif self.multithreading == 1:
+            for i in range(self.population_size):
+                # Get an instance to work with from the survivor list
+                choice = np.random.choice(survivors, 1)[0]
+                cr = copy.deepcopy(choice)
+                # Randomly select genes from their survivor parents
+                cr.genome.set_random_genome_from_creatures(survivors)
                 # Mutate if probability says so
                 cr.genome.mutate_genome(self.mutation_probability)
                 # Reinitialize offspring
-                cr.reinit_offspring
+                cr.reinit_offspring()
                 # Append to offspring array
                 offsprings.append(cr)
 
         # Set new population
         self.creature_array = offsprings
+        # Reinit population
+        self.init_population_locations()
+
+        log.debug(
+            f"Creature array locations - {[(x.X, x.Y) for x in self.creature_array]}")
+        log.debug(
+            f"Random locations array - {[tuple(x) for x in self.random_locations]}")
+
         # Increase round number
         self.num_round += 1
         # Reset step counter
-        self.num_step = 0
+        self.num_step = 1
+
+    def eval_step(self):
+        log.debug(f"Eval step:{self.num_step}")
+        neuron_calc = NeuronCalculator()
+        # Multithreading
+        if self.multithreading > 1:
+            with ThreadPoolExecutor(self.multithreading) as executor:
+                # Calculate neurons
+                futures = [executor.submit(neuron_calc.calc_neurons, cr)
+                           for cr in self.creature_array]
+                wait(futures)
+
+                # Calculate action outputs
+                futures = [executor.submit(neuron_calc.calc_action_outputs, cr)
+                           for cr in self.creature_array]
+                wait(futures)
+
+                # Execute outputss on actions
+                # Cannot execute them in parallel as they need to check if there is a creature where they would move
+                # [] how to make this multithreading?
+                [neuron_calc.execute_actions(cr) for cr in self.creature_array]
+
+                # Reset neuron states
+                futures = [executor.submit(neuron_calc.reset_neuron_states, cr)
+                           for cr in self.creature_array]
+                wait(futures)
+
+        # Single threading
+        elif self.multithreading == 1:
+            for cr in self.creature_array:
+                neuron_calc.calc_neurons(cr)
+                neuron_calc.calc_action_outputs(cr)
+                neuron_calc.execute_actions(cr)
+                neuron_calc.reset_neuron_states(cr)
+
+        # Saving image
+        image = self.create_img()
+        path = self.sim_subdir + \
+            str(self.num_round) + '_' + str(self.num_step) + '.png'
+        self.save_plot(path, image)
+        # Calculate new occupied pixels
+        self.occupied_pixels = self.calc_occupied_pixels()
+        log.debug(
+            f"Occupied pixels at step #{self.num_step} :\n{self.occupied_pixels}")
+        # Increase step counter
+        self.num_step += 1
+
+    def init_population_locations(self):
+        # Putting creatures to a unique random location
+        self.set_random_locations(population_size=self.population_size)
+        # Update new locations in creatures in their genome
+        #[cr.genome.action.update_loc() for cr in self.creature_array]
+        for cr in self.creature_array:
+            cr.genome.action.update_loc()
+
+        # Store occupied pixels
+        self.occupied_pixels = self.calc_occupied_pixels()
+        log.debug(
+            f"Occupied pixels at init_population_locations:\n{self.occupied_pixels}")
 
     def set_random_locations(self, population_size: int):
         def generate_grid_locations(size: int):
@@ -81,6 +196,8 @@ class SimEnv:
         grid = generate_grid_locations(self.X)
         np.random.shuffle(grid)
         self.random_locations = grid[:self.population_size]
+
+        # Place creatures in new random locations
         for (loc, cr) in zip(self.random_locations, self.creature_array):
             cr.X = loc[0]
             cr.Y = loc[1]
@@ -91,43 +208,7 @@ class SimEnv:
             occupied_pixels.append((i.X, i.Y))
         return occupied_pixels
 
-    def step(self):
-        # Multithreading
-        if self.multithreading > 1:
-            neuron_calc = NeuronCalculator()
-            with ThreadPoolExecutor(self.multithreading) as executor:
-                futures = [executor.submit(neuron_calc.calc_neurons, cr)
-                           for cr in self.creature_array]
-                wait(futures)
-                futures = [executor.submit(neuron_calc.calc_action_outputs, cr)
-                           for cr in self.creature_array]
-                wait(futures)
-                # Execute outputss on actions
-                # Cannot execute them in parallel as they need to check if there is a creature where they would move
-                [neuron_calc.execute_actions(cr) for cr in self.creature_array]
-
-        # Single threading
-        elif self.multithreading == 1:
-            neuron_calc = NeuronCalculator()
-            for cr in self.creature_array:
-                neuron_calc.calc_neurons(cr)
-                neuron_calc.calc_action_outputs(cr)
-                neuron_calc.execute_actions(cr)
-
-        # Saving image
-        image = self.create_img()
-        path = self.sim_subdir + str(self.num_step) + '.png'
-        self.save_plot(path, image)
-        # Calculate new occupied pixels
-        self.occupied_pixels = self.calc_occupied_pixels()
-        log.debug(f"Occupied pixels:\n{self.occupied_pixels}")
-        # Increase step counter
-        self.num_step += 1
-
     def create_img(self):
-        # [x] need to create two layers: 1 for the grid, and an additional top layer with low alpha for the selection area
-        # # https://stackoverflow.com/questions/60398939/how-to-do-alpha-compositing-with-a-list-of-rgba-data-in-numpy-arrays 
-
         def hex_to_rgb(value):
             """Return (red, green, blue) for the color given as #rrggbb."""
             value = value.lstrip('#')
@@ -229,6 +310,7 @@ class SimEnv:
         self.mutation_probability = mutation_probability
 
         # Init enviroment utils
+        # [] implement logging - survivor rate, bio diversity
         self.log = pd.DataFrame()
         self.id = uuid.uuid4()
         self.multithreading = multithreading
@@ -285,15 +367,18 @@ class SimEnv:
                 cr.genome.action.update_loc()
                 self.creature_array.append(cr)
 
-        # Putting creatures to a unique random location
-        self.set_random_locations(population_size=self.population_size)
-        # Update new locations in creatures
-        for cr in self.creature_array:
-            cr.genome.action.update_loc()
+        # # Putting creatures to a unique random location
+        # self.set_random_locations(population_size=self.population_size)
+        # # Update new locations in creatures
+        # for cr in self.creature_array:
+        #     cr.genome.action.update_loc()
 
-        # Store occupied pixels
-        self.occupied_pixels = self.calc_occupied_pixels()
-        log.debug(f"Occupied pixels:\n{self.occupied_pixels}")
+        # # Store occupied pixels
+        # self.occupied_pixels = self.calc_occupied_pixels()
+        # log.debug(f"Occupied pixels:\n{self.occupied_pixels}")
+
+        # Initialize population
+        self.init_population_locations()
         log.info(f"Creatures generated.")
 
         # Init selection criteria
@@ -305,7 +390,7 @@ class SimEnv:
 
         # Saving first image
         image = self.create_img()
-        path = self.sim_subdir + '0.png'
+        path = self.sim_subdir + '1_0.png'
         self.save_plot(path, image)
 
 
