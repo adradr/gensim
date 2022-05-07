@@ -92,55 +92,27 @@ class SimEnv:
         return occupied_pixels
 
     def step(self):
-        # Multithreading
-        def calc_sensory_syn(i):
-            i.genome.calculate_sensory_synapses()
-
-        def calc_int_syn(i):
-            i.genome.calculate_internal_synapses()
-
-        def calc_int_output(i):
-            i.genome.calculate_internal_outputs_neurons()
-
-        def calc_act_output(i):
-            i.genome.calculate_action_outputs_neurons()
-
-        def execute_output(i):
-            i.genome.execute_neuron_states()
-            self.occupied_pixels = self.calc_occupied_pixels()
-
+        # Multithreading
         if self.multithreading > 1:
+            neuron_calc = NeuronCalculator()
             with ThreadPoolExecutor(self.multithreading) as executor:
-                # Calculate sensory inputs
-                futures = [executor.submit(calc_sensory_syn, cr)
+                futures = [executor.submit(neuron_calc.calc_neurons, cr)
                            for cr in self.creature_array]
                 wait(futures)
-                # Calculate internal outputs
-                futures = [executor.submit(calc_int_output, cr)
-                           for cr in self.creature_array]
-                wait(futures)
-                # Calculate internals inputs
-                futures = [executor.submit(calc_int_syn, cr)
-                           for cr in self.creature_array]
-                wait(futures)
-                # Calculate action inputs
-                futures = [executor.submit(calc_act_output, cr)
+                futures = [executor.submit(neuron_calc.calc_action_outputs, cr)
                            for cr in self.creature_array]
                 wait(futures)
                 # Execute outputss on actions
                 # Cannot execute them in parallel as they need to check if there is a creature where they would move
-                # futures = [executor.submit(execute_output, cr)
-                #            for cr in self.creature_array]
-                # wait(futures)
-                [execute_output(cr) for cr in self.creature_array]
+                [neuron_calc.execute_actions(cr) for cr in self.creature_array]
 
+        # Single threading
         elif self.multithreading == 1:
+            neuron_calc = NeuronCalculator()
             for cr in self.creature_array:
-                calc_sensory_syn(cr)
-                calc_int_output(cr)
-                calc_int_syn(cr)
-                calc_act_output(cr)
-                execute_output(cr)
+                neuron_calc.calc_neurons(cr)
+                neuron_calc.calc_action_outputs(cr)
+                neuron_calc.execute_actions(cr)
 
         # Saving image
         image = self.create_img()
