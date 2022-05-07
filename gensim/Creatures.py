@@ -46,7 +46,7 @@ class Creature:
 
             dot.node(a, style='filled', fillcolor=id_1_color)
             dot.node(b, style='filled', fillcolor=id_2_color)
-            rounded_weight = round(i[4], 2)
+            rounded_weight = np.round(i[4], 2)
             edge_color = "#30b854" if rounded_weight > 0 else "#b01726"
             edge_width = str(abs(rounded_weight)+1)
             dot.edge(a, b, '', {
@@ -308,7 +308,8 @@ class Action:
         # Define probability and return current location if its false and exit
         # Input values are -1...1. We take its abs value and calculate a probability
         # Action neuron only fires if the output value's probability turns to true
-        if not pr.Prob(np.abs(value)):
+        value = np.round(np.abs(value), 4)
+        if not pr.Prob(value):
             return self.loc
 
         # Get current occupied state
@@ -322,7 +323,7 @@ class Action:
         new_loc = [(x + (direction.value[idx]) * value)
                    for idx, x in enumerate(self.loc)]
         # Round pixel values
-        new_loc = [round(x) for x in new_loc]
+        new_loc = [np.round(x) for x in new_loc]
         # Check so neither coordinates cannot go below zero, else set to zero
         new_loc = [0 if x < 0 else x for x in new_loc]
         # Check so neither coordinates cannot go above max, else set to max
@@ -626,7 +627,7 @@ class Genome:
 
         # Setting synapse weight between 1 and 5, rounding to 3 digits
         synapse_weight = np.random.uniform(low=-5, high=5)
-        synapse_weight = round(synapse_weight, 3)
+        synapse_weight = np.round(synapse_weight, 3)
 
         array = np.array([source_type, from_neuron_id,
                          destination_type, to_neuron_id, synapse_weight])
