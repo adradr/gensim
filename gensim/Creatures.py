@@ -116,9 +116,6 @@ class Creature:
         arr_int_neurons = [
             x+len_sensory for x in np.arange(self.num_int_neuron)]
 
-        # Attach NeuronCalculator
-        self.neuron_calc = NeuronCalculator(self)
-
 
 class Oscillator:
     def get_value_at_step(self, step):
@@ -379,9 +376,6 @@ class Action:
 
 
 class NeuronCalculator:
-    def __init__(self, creature: Creature):
-        self.creature = creature
-        self.genome = self.creature.genome
 
     # [ 1., 12., 0., 1.,  0.09899215]
     # [ 0., 6., 1., 14., -2.21110532]
@@ -403,54 +397,54 @@ class NeuronCalculator:
     def calc_tanh(self, inputs):
         return np.tanh(np.sum(inputs))
 
-    def reset_neuron_states(self):
-        self.genome.action_neuron_state = {key: [0]
-                                           for key in self.genome.arr_action}
-        self.genome.int_neuron_state = {key: [0]
-                                        for key in self.genome.arr_int_neurons}
+    def reset_neuron_states(self, creature: Creature):
+        creature.genome.action_neuron_state = {key: [0]
+                                               for key in creature.genome.arr_action}
+        creature.genome.int_neuron_state = {key: [0]
+                                            for key in creature.genome.arr_int_neurons}
 
-    def calc_neurons(self):
-        for gene in self.genome.genome:
+    def calc_neurons(self, creature: Creature):
+        for gene in creature.genome.genome:
             # ----- Input -------
             if gene[0] == 0:  # If sensory neuron
                 input_val = getattr(
-                    self.genome.sensory, SensoryNeurons(gene[1]).name)()
+                    creature.genome.sensory, SensoryNeurons(gene[1]).name)()
                 input_val *= gene[4]  #  Multiply by weights
             if gene[0] == 1:  # If internal neuron
                 # Get the internal neuron from previous step state
                 try:
                     input_val = self.calc_tanh(
-                        self.genome.int_neuron_state_prev[gene[1]])
+                        creature.genome.int_neuron_state_prev[gene[1]])
                 # If not avaiable previous state get it from current
                 except:
                     input_val = self.calc_tanh(
-                        self.genome.int_neuron_state[gene[1]])  # Calculate with tanh formula
+                        creature.genome.int_neuron_state[gene[1]])  # Calculate with tanh formula
                 input_val *= gene[4]  #  Multiply by weights
             # ----- Output -------
             if gene[2] == 0:  #  If action neuron
-                self.genome.action_neuron_state[gene[3]].append(input_val)
+                creature.genome.action_neuron_state[gene[3]].append(input_val)
             if gene[2] == 1:  #  If internal neuron
-                self.genome.int_neuron_state[gene[3]].append(input_val)
+                creature.genome.int_neuron_state[gene[3]].append(input_val)
 
-    def calc_action_outputs(self):
+    def calc_action_outputs(self, creature: Creature):
         # Iterate over action neurons and calculate final output values
-        for k, v in self.genome.action_neuron_state.items():
-            self.genome.action_neuron_state[k] = self.calc_tanh(v)
+        for k, v in creature.genome.action_neuron_state.items():
+            creature.genome.action_neuron_state[k] = self.calc_tanh(v)
 
-    def execute_actions(self):
+    def execute_actions(self, creature: Creature):
         # Save previous states
-        self.genome.int_neuron_state_prev = self.genome.int_neuron_state
+        creature.genome.int_neuron_state_prev = creature.genome.int_neuron_state
 
         # Iterate action neurons and execute
-        for k, v in self.genome.action_neuron_state.items():
+        for k, v in creature.genome.action_neuron_state.items():
             if v:  # If there is a value
                 # Execute action
-                getattr(self.genome.action, ActionNeurons(k).name)(v)
+                getattr(creature.genome.action, ActionNeurons(k).name)(v)
             # Update occupied pixels after each new move
             # self.creature.env.occupied_pixels = self.creature.env.calc_occupied_pixels()
 
         # Reset neuron states
-        self.reset_neuron_states()
+        self.reset_neuron_states(creature=creature)
 
 
 ##############################################################################################################
