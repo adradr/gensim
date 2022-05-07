@@ -5,6 +5,7 @@ import uuid
 import numpy as np
 import pandas as pd
 import imageio
+import random
 import matplotlib.pyplot as plt
 from itertools import zip_longest
 from tqdm.contrib.concurrent import thread_map
@@ -33,50 +34,35 @@ max_round:"          {num_rounds}/{num_round}"""
 
 
 class SimEnv:
+
     def eval_round(self):
+        # Utility function
+        def pairwise(t):
+            it = iter(t)
+            return zip(it, it)
+
         # Evaluate survivors
         survivors = self.selection.evaluate_survivors(
             self.creature_array)
+        # Remove an element if uneven
+        if len(survivors) % 2 == 1:
+            survivors.pop()
+        # Shuffle list randomly
+        random.shuffle(survivors)
 
-        # Create a list for both sex
-        females = [x for x in survivors if x.sex == 1]
-        males = [x for x in survivors if x.sex == 0]
-
-        # Match the survivors based on sex
+        # Match the survivors based randomly
         offsprings = []
-        remainder = 0
-        for m, f in zip_longest(males, females):
-            # If both are avaiable generate offsprings
-            if m and f:
-                new_creatures = [m, f]
-                for cr in new_creatures:
-                    # Randomly select genes from their parents
-                    cr.genome.set_random_genome_from_creatures(m, f)
-                    # Mutate if probability says so
-                    cr.genome.mutate_genome(self.mutation_probability)
-                    # Reinitialize offspring
-                    cr.reinit_offspring
-                    # Append to offspring array
-                    offsprings.append(cr)
-            # If either one of the parents missing increase remainder counter
-            elif m == None or f == None:
-                remainder += 2
 
-        # Generate remainder creatures by making more offsprings for successful parents
-        # Repeat previous flow and decrease remainder
-        # [] solve it more elegantly
-        for m, f in zip_longest(males, females):
-            if m and f:
-                new_creatures = [m, f]
-                for cr in new_creatures:
-                    cr.genome.set_random_genome_from_creatures(m, f)
-                    cr.genome.mutate_genome(self.mutation_probability)
-                    cr.reinit_offspring
-                    offsprings.append(cr)
-                # Decrease remainder until zero
-                remainder -= 2
-                if remainder == 0:
-                    break
+        for pair in pairwise(survivors):
+            for cr in pair:
+                # Randomly select genes from their parents
+                cr.genome.set_random_genome_from_creatures(m, f)
+                # Mutate if probability says so
+                cr.genome.mutate_genome(self.mutation_probability)
+                # Reinitialize offspring
+                cr.reinit_offspring
+                # Append to offspring array
+                offsprings.append(cr)
 
         # Set new population
         self.creature_array = offsprings
