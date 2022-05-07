@@ -1,13 +1,22 @@
 import logging
 import pickle
 from time import time
-from tqdm import tqdm, trange
-import gensim
 from gensim import *
 from gensim.Enviroment import SelectionCriterias
 
+# -------- SETTINGS --------
 LOGGING_LEVEL = logging.INFO
-MULTITHREADING_NTHREADS = 10
+MAP_SIZE = 25
+POPULATION_SIZE = 200
+NUM_STEPS = 100
+NUM_GENERATIONS = 20
+GENE_SIZE = 12
+NUM_INTERNAL_NEURON = 3
+MUTATION_RATE = 0.05
+SELECTION_AREA_SIZE = 0.2
+SELECTION_CRITERIA_TYPE = SelectionCriterias.BOTH_SIDE
+MULTITHREADING_NTHREADS = 200
+# --------------------------
 
 log = logging.getLogger('gensim')
 logging.basicConfig(format="%(asctime)s - %(message)s")
@@ -16,28 +25,19 @@ log.setLevel(LOGGING_LEVEL)
 if (__name__ == "__main__"):
     # Create enviroment
     log.info(f"Creating enviroment...")
-    env = Enviroment.SimEnv(size=100,
-                            population_size=200,
-                            num_steps=50,
-                            num_rounds=10,
-                            gene_size=10,
-                            num_int_neuron=3, mutation_probability=0.01,
-                            selection_area_width_pct=0.1, criteria_type=SelectionCriterias.BOTH_SIDE,
+    env = Enviroment.SimEnv(size=MAP_SIZE,
+                            population_size=POPULATION_SIZE,
+                            num_steps=NUM_STEPS,
+                            num_rounds=NUM_GENERATIONS,
+                            gene_size=GENE_SIZE,
+                            num_int_neuron=NUM_INTERNAL_NEURON,
+                            mutation_probability=MUTATION_RATE,
+                            selection_area_width_pct=SELECTION_AREA_SIZE,
+                            criteria_type=SELECTION_CRITERIA_TYPE,
                             multithreading=MULTITHREADING_NTHREADS)
     log.info(f"Enviroment created: {env.id}")
-
-    # Iterate over steps
-    start_time = time()
-    log.info(f"Iterating enviroment steps: {env.id}")
-    for i in range(env.num_steps):
-        step_time_start = time()
-        iter_time = round(step_time_start - start_time, 1)
-        env.step()
-        step_time_end = time()
-        step_time = round(step_time_end - step_time_start, 1)
-        log.info(
-            f"Iterating progress: {env.num_steps}/{i} {step_time}s / {iter_time}s ---------------------------------")
-
+    # Calculate simulation
+    env.eval_env()
     log.info(f"Iterating enviroment finished: {env.id}")
 
     # Generate animation
