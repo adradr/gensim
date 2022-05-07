@@ -150,11 +150,14 @@ class SimEnv:
 
         elif self.multithreading == 1:
             for cr in self.creature_array:
-                calc_sensory_syn(cr)
-                calc_int_output(cr)
-                calc_int_syn(cr)
-                calc_act_output(cr)
-                execute_output(cr)
+                cr.neuron_calc.calc_neurons()
+                cr.neuron_calc.calc_action_outputs()
+                cr.neuron_calc.execute_actions()
+                # calc_sensory_syn(cr)
+                # calc_int_output(cr)
+                # calc_int_syn(cr)
+                # calc_act_output(cr)
+                # execute_output(cr)
 
         # Saving image
         image = self.create_img()
