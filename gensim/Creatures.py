@@ -1,6 +1,5 @@
 import os
 import logging
-import math
 import uuid
 import hashlib
 import graphviz
@@ -13,7 +12,7 @@ log = logging.getLogger('gensim')
 
 def generate_pixels_around(grid_size: int, current_location: tuple):
     # Getting a nullpoint for the grid_size * grid_size search grid
-    half_grid_size = math.ceil(grid_size/2)
+    half_grid_size = np.ceil(grid_size/2).astype(int)
     null_point = [x-half_grid_size for x in current_location]
     # Creating the pixel locations in the pixels around creature
     density_loc_arr = []
@@ -46,7 +45,7 @@ class Creature:
 
             dot.node(a, style='filled', fillcolor=id_1_color)
             dot.node(b, style='filled', fillcolor=id_2_color)
-            rounded_weight = round(i[4], 2)
+            rounded_weight = np.round(i[4], 2)
             edge_color = "#30b854" if rounded_weight > 0 else "#b01726"
             edge_width = str(abs(rounded_weight)+1)
             dot.edge(a, b, '', {
@@ -197,6 +196,10 @@ class Sensory:
         density = grid_size - density - 1  #  -1 for the creature location
         return self.map_0_1(density, grid_size-1)
 
+# [] debug issue:   cc9283fe (<Directions.NORTH: (0, 1)>, 2, 3, 'view_forward', 14.0, -0.6666666666666666)
+#                   there are nobody ahead to north, there are 1 empty pixel to the north wall
+#                   why is the output is -0.67? it should be 1 as there is one pixel ahead only and its empty
+
     def view_forward(self, number_pixel_ahead: int = 3):
         locations_ahead = []
         # Calculate pixel locations ahead by number_pixel_ahead
@@ -297,14 +300,26 @@ class Action:
     def move(self, direction: Directions, value: float = 1):
         # Update current creature location
         self.loc = [self.creature.X, self.creature.Y]
+
+        # Define probability and return current location if its false and exit
+        # Input values are -1...1. We take its abs value and calculate a probability
+        # Action neuron only fires if the output value's probability turns to true
+        value = np.round(np.abs(value), 4)
+        if not pr.Prob(value):
+            return self.loc
+
         # Get current occupied state
         occupied_pixels = self.creature.env.occupied_pixels
-        occupied_pixels.remove(tuple(self.loc))
+        try:
+            occupied_pixels.remove(tuple(self.loc))
+        except:
+            pass
+
         # Calculate new location
         new_loc = [(x + (direction.value[idx]) * value)
                    for idx, x in enumerate(self.loc)]
         # Round pixel values
-        new_loc = [round(x) for x in new_loc]
+        new_loc = [np.round(x).astype(int) for x in new_loc]
         # Check so neither coordinates cannot go below zero, else set to zero
         new_loc = [0 if x < 0 else x for x in new_loc]
         # Check so neither coordinates cannot go above max, else set to max
@@ -318,6 +333,9 @@ class Action:
         # Update direction according to last loc change
         self.update_last_direction(last_loc=self.loc, new_loc=new_loc)
         self.loc = new_loc
+        # Calculate new occupied pixels
+        self.creature.env.occupied_pixels = self.creature.env.calc_occupied_pixels()
+
         return new_loc
 
     def move_fr(self, value: float):
@@ -352,9 +370,84 @@ class Action:
         # [] need to implement emit_pheromones
         pass
 
-# [] debug why are they moving north/east mostly?
+# [x] debug why are they moving north/east mostly?
 # [x] need to multiply by synapse weights also
 # [] create a better genome coloring method so similars are close in color
+
+
+class NeuronCalculator:
+
+    # [ 1., 12., 0., 1.,  0.09899215]
+    # [ 0., 6., 1., 14., -2.21110532]
+    # Sensory neurons output 0..1
+    # Action neurons input tanh(sum(inputs)) -1..1
+    # Action neurons output -4..4
+    # Internal neurons input tanh(sum(inputs)) -1..1
+    # Connection weights -5..5
+
+    # [ 0.     0.     1.    11.    -3.191]
+    # [ 0.     2.     0.     2.    -3.672]
+    # [ 0.     4.     0.     4.    -1.923]
+    # [ 0.    10.     1.    11.     4.421]
+    # [ 0.    10.     1.    11.     0.534]
+    # [ 0.     4.     0.     6.     2.832]
+    # [ 1.    11.     1.    11.     0.817]
+    # [ 1.    11.     1.    11.    -2.126]
+
+    def calc_tanh(self, inputs):
+        return np.tanh(np.sum(inputs))
+
+    def reset_neuron_states(self, creature: Creature):
+        creature.genome.action_neuron_state = {key: [0]
+                                               for key in creature.genome.arr_action}
+        creature.genome.int_neuron_state = {key: [0]
+                                            for key in creature.genome.arr_int_neurons}
+
+    def calc_neurons(self, creature: Creature):
+        for gene in creature.genome.genome:
+            # ----- Input -------
+            if gene[0] == 0:  # If sensory neuron
+                input_val = getattr(
+                    creature.genome.sensory, SensoryNeurons(gene[1]).name)()
+                input_val *= gene[4]  #  Multiply by weights
+            if gene[0] == 1:  # If internal neuron
+                # Get the internal neuron from previous step state
+                try:
+                    input_val = self.calc_tanh(
+                        creature.genome.int_neuron_state_prev[gene[1]])
+                # If not avaiable previous state get it from current
+                except:
+                    input_val = self.calc_tanh(
+                        creature.genome.int_neuron_state[gene[1]])  # Calculate with tanh formula
+                input_val *= gene[4]  #  Multiply by weights
+            # ----- Output -------
+            if gene[2] == 0:  #  If action neuron
+                creature.genome.action_neuron_state[gene[3]].append(input_val)
+            if gene[2] == 1:  #  If internal neuron
+                creature.genome.int_neuron_state[gene[3]].append(input_val)
+
+    def calc_action_outputs(self, creature: Creature):
+        # Iterate over action neurons and calculate final output values
+        for k, v in creature.genome.action_neuron_state.items():
+            creature.genome.action_neuron_state[k] = self.calc_tanh(v)
+
+    def execute_actions(self, creature: Creature):
+        # Save previous states
+        creature.genome.int_neuron_state_prev = creature.genome.int_neuron_state
+
+        # Iterate action neurons and execute
+        for k, v in creature.genome.action_neuron_state.items():
+            if v:  # If there is a value
+                # Execute action
+                getattr(creature.genome.action, ActionNeurons(k).name)(v)
+            # Update occupied pixels after each new move
+            # self.creature.env.occupied_pixels = self.creature.env.calc_occupied_pixels()
+
+        # Reset neuron states
+        self.reset_neuron_states(creature=creature)
+
+
+##############################################################################################################
 
 
 class Genome:
@@ -383,130 +476,6 @@ class Genome:
         hash = hashlib.sha1(neuron).hexdigest()
         return str(hash)[:6]
 
-    def execute_neuron_states(self):
-        # Execute for all action neurons
-        for k, v in self.action_neuron_state.items():
-            if v:
-                log.debug(
-                    f"{self.creature.id_short} Executing {ActionNeurons(k).name} with value: {v}")
-                # Multiply by synapse weight
-                getattr(self.action, ActionNeurons(k).name)(v)
-                # Update occupied pixels after each new move
-                self.creature.env.occupied_pixels = self.creature.env.calc_occupied_pixels()
-                log.debug(
-                    f"{self.creature.id_short} Executed {ActionNeurons(k).name}, new position of creature: {self.creature.id_short, self.creature.last_dir,self.creature.X, self.creature.Y}")
-
-        # Reset neuron states
-        self.action_neuron_state = {key: [] for key in self.arr_action}
-        self.int_neuron_state = {key: [] for key in self.arr_int_neurons}
-        log.debug(
-            f"{self.creature.id_short, self.creature.X, self.creature.Y}")
-
-    def calculate_internal_outputs_neurons(self):
-        # Calculate output neurons =tanh(sum(input)) = -1..1 for action and internals
-        log.debug(
-            f"{self.creature.id_short} calculating internal neuron state...")
-        log.debug(
-            f"{self.creature.id_short} internal neuron state before: {self.int_neuron_state}")
-        for f in self.int_neuron_state.items():
-            inputs = np.array(self.int_neuron_state[f[0]])
-            self.int_neuron_state[f[0]] = np.tanh(np.sum(inputs))
-
-        log.debug(
-            f"{self.creature.id_short} internal neuron state after:  {self.int_neuron_state}")
-
-    def calculate_action_outputs_neurons(self):
-        # Calculate output neurons =tanh(sum(input)) = -1..1 for action and internals
-        for f in self.action_neuron_state.items():
-            inputs = np.array(self.action_neuron_state[f[0]])
-            self.action_neuron_state[f[0]] = np.tanh(np.sum(inputs))
-
-        log.debug(
-            f"{self.creature.id_short} action neuron state:   {self.action_neuron_state}")
-
-    def calculate_internal_synapses(self):
-        log.debug(
-            f"{self.creature.id_short} {self.creature.last_dir, self.creature.X, self.creature.Y}")
-
-        # [source_type][from_neuron_id][destination_type][to_neuron_id][synapse_weight]
-
-        for gene in self.genome:
-            # If input source is internal neuron
-            if gene[1] in self.arr_int_neurons:
-                # Get input value from from_neuron_id of internal neuron state dict
-                input_val = self.int_neuron_state[gene[1]]
-                # Cast it to array if its not
-                if not isinstance(input_val, list):
-                    input_val = [input_val]
-
-                # Multiply input by its weight
-                input_val = [x * gene[4] for x in input_val]
-
-                log.debug(
-                    f"{self.creature.id_short} {self.creature.last_dir, self.creature.X, self.creature.Y, SensoryNeurons(gene[1]).name if gene[1] in self.arr_sensory else gene[1], ActionNeurons(gene[3]).name if gene[3] in self.arr_action else gene[3], input_val}")
-
-                # If output destination is internal neuron
-                if gene[3] in self.arr_int_neurons:
-                    if not isinstance(self.int_neuron_state[gene[3]], list):
-                        self.int_neuron_state[gene[3]] = [
-                            self.int_neuron_state[gene[3]]]
-                    for x in input_val:
-                        self.int_neuron_state[gene[3]].append(x)
-
-                # If output destination is action neuron
-                if gene[3] in self.arr_action:
-                    if not isinstance(self.action_neuron_state[gene[3]], list):
-                        self.action_neuron_state[gene[3]] = [
-                            self.action_neuron_state[gene[3]]]
-                    for x in input_val:
-                        self.action_neuron_state[gene[3]].append(x)
-
-    def calculate_sensory_synapses(self):
-
-        # [ 1., 12., 0., 1.,  0.09899215]
-        # [ 0., 6., 1., 14., -2.21110532]
-        # Sensory neurons output 0..1
-        # Action neurons input tanh(sum(inputs)) -1..1
-        # Action neurons output -4..4
-        # Internal neurons input tanh(sum(inputs)) -1..1
-        # Connection weights -5..5
-
-        # [x] when using internal neuron as source it uses the array as value for input to the action neuron
-        # EXAMPLE: 2ef946be action neuron state:   {0: [0.02], 1: [-0.041666666666666664, 0.96], 2: [], 3: [0.02], 4: [[-1.0]], 5: [0.96], 6: []}
-        # 1. calculate sensory sources - either add directly to action or internal
-        # 2. sum internal neuron outputs
-        # 3. add internal neuron outputs to internals
-        # 4. sum internal neuron outputs
-        # 5. add internal neuron outputs to actions
-        # 6. execute action neurons
-        # What happens when two internal neurons are feeding each other? Which would be calculated first?
-        #   - maybe calculate first all the action inputs with tanh(sum(inputs))
-        #   - recalculate internal neuron outputs
-        #   - feed internal neuron outputs to actions
-        # What happens when an internal neuron feeds itself?
-
-        for gene in self.genome:
-            # If input source is action
-            if gene[1] in self.arr_sensory:
-                input_val = getattr(
-                    self.sensory, SensoryNeurons(gene[1]).name)()
-                log.debug(
-                    f"{self.creature.id_short} {self.creature.last_dir, self.creature.X, self.creature.Y, SensoryNeurons(gene[1]).name if gene[1] in self.arr_sensory else gene[1], ActionNeurons(gene[3]).name if gene[3] in self.arr_action else gene[3], input_val}")
-
-                # If output destination is internal neuron
-                # Apply synapse weight
-                input_val = input_val * gene[4]
-                # Add to neuron states
-                if gene[3] in self.int_neuron_state:
-                    self.int_neuron_state[gene[3]].append(input_val)
-
-                # If output destination is action neuron
-                # Apply synapse weight
-                input_val = input_val * gene[4]
-                # Add to neuron states
-                if gene[3] in self.arr_action:
-                    self.action_neuron_state[gene[3]].append(input_val)
-
     def generate_int_neuron_list(self, num_int_neuron: int):
         len_action = len(SensoryNeurons)
         return np.arange(len_action, len_action + num_int_neuron)
@@ -527,7 +496,7 @@ class Genome:
 
         # Setting synapse weight between 1 and 5, rounding to 3 digits
         synapse_weight = np.random.uniform(low=-5, high=5)
-        synapse_weight = round(synapse_weight, 3)
+        synapse_weight = np.round(synapse_weight, 3)
 
         array = np.array([source_type, from_neuron_id,
                          destination_type, to_neuron_id, synapse_weight])
