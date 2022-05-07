@@ -117,6 +117,9 @@ class Creature:
         arr_int_neurons = [
             x+len_sensory for x in np.arange(self.num_int_neuron)]
 
+        # Attach NeuronCalculator
+        self.neuron_calc = NeuronCalculator(self)
+
 
 class Oscillator:
     def get_value_at_step(self, step):
@@ -407,19 +410,19 @@ class NeuronCalculator:
                                         for key in self.genome.arr_int_neurons}
 
     def calc_neurons(self):
-        for gene in self.genome:
+        for gene in self.genome.genome:
             # ----- Input -------
-            if gene[1] == 0:  # If sensory neuron
+            if gene[0] == 0:  # If sensory neuron
                 input_val = getattr(
                     self.genome.sensory, SensoryNeurons(gene[1]).name)()
                 input_val *= gene[4]  #  Multiply by weights
-            if gene[1] == 1:  # If internal neuron
+            if gene[0] == 1:  # If internal neuron
                 # Get the internal neuron from previous step state
-                if self.genome.int_neuron_state_prev:
+                try:
                     input_val = self.calc_tanh(
                         self.genome.int_neuron_state_prev[gene[1]])
                 # If not avaiable previous state get it from current
-                else:
+                except:
                     input_val = self.calc_tanh(
                         self.genome.int_neuron_state[gene[1]])  # Calculate with tanh formula
                 input_val *= gene[4]  #  Multiply by weights
@@ -432,7 +435,7 @@ class NeuronCalculator:
     def calc_action_outputs(self):
         # Iterate over action neurons and calculate final output values
         for k, v in self.genome.action_neuron_state.items():
-            self.genome.action_neuron_state[k] = self.calc_action_outputs(v)
+            self.genome.action_neuron_state[k] = self.calc_tanh(v)
 
     def execute_actions(self):
         # Save previous states
