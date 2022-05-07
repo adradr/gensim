@@ -108,14 +108,6 @@ class Creature:
         log.debug(
             f"Creature {self.id_short} neuron array:\n{self.gene_array}")
 
-        # Calculate required info
-        len_sensory = len(SensoryNeurons)
-        len_action = len(ActionNeurons)
-        arr_sensory = [x.value for x in list(SensoryNeurons)]
-        arr_action = [x.value for x in list(ActionNeurons)]
-        arr_int_neurons = [
-            x+len_sensory for x in np.arange(self.num_int_neuron)]
-
 
 class Oscillator:
     def get_value_at_step(self, step):
@@ -375,6 +367,19 @@ class Action:
 # [] create a better genome coloring method so similars are close in color
 
 
+def log_states_reset(creature):
+    log.debug(f"{creature.id_short} - Resetting neuron states...")
+    log.debug(
+        f"{creature.id_short} - Neuron state (int): {creature.genome.int_neuron_state}")
+    log.debug(
+        f"{creature.id_short} - Neuron state (act): {creature.genome.action_neuron_state}")
+
+
+def log_neuron_update(creature, gene, input_val):
+    log.debug(
+        f"{creature.id_short} - Neuron updated: input:{'N'+str(gene[1]) if gene[0] == 1 else SensoryNeurons(gene[1]).name} / output:{'N'+str(gene[3]) if gene[2] == 1 else ActionNeurons(gene[3]).name} / value: {input_val}")
+
+
 class NeuronCalculator:
 
     # [ 1., 12., 0., 1.,  0.09899215]
@@ -398,6 +403,9 @@ class NeuronCalculator:
         return np.tanh(np.sum(inputs))
 
     def reset_neuron_states(self, creature: Creature):
+        # Log states before erasing
+        log_states_reset(creature)
+        # Reset neurons
         creature.genome.action_neuron_state = {key: [0]
                                                for key in creature.genome.arr_action}
         creature.genome.int_neuron_state = {key: [0]
@@ -426,6 +434,9 @@ class NeuronCalculator:
             if gene[2] == 1:  #  If internal neuron
                 creature.genome.int_neuron_state[gene[3]].append(input_val)
 
+            # Logging debug
+            log_neuron_update(creature, gene, input_val)
+
     def calc_action_outputs(self, creature: Creature):
         # Iterate over action neurons and calculate final output values
         for k, v in creature.genome.action_neuron_state.items():
@@ -435,31 +446,35 @@ class NeuronCalculator:
         # Save previous states
         creature.genome.int_neuron_state_prev = creature.genome.int_neuron_state
 
+        log.debug(
+            f"{creature.id_short} - Executing action neurons...")
+        log.debug(
+            f"{creature.id_short} - Neuron state (act): {creature.genome.action_neuron_state}")
+
         # Iterate action neurons and execute
         for k, v in creature.genome.action_neuron_state.items():
             if v:  # If there is a value
                 # Execute action
                 getattr(creature.genome.action, ActionNeurons(k).name)(v)
-            # Update occupied pixels after each new move
-            # self.creature.env.occupied_pixels = self.creature.env.calc_occupied_pixels()
-
-        # Reset neuron states
-        self.reset_neuron_states(creature=creature)
-
+                # Update occupied pixels after each new move
+                creature.env.occupied_pixels = creature.env.calc_occupied_pixels()
 
 ##############################################################################################################
 
 
 class Genome:
-    def set_random_genome_from_creatures(self, creatures: tuple[Creature, Creature]):
+    def set_random_genome_from_creatures(self, creatures: list[Creature]):
+        gene_size = creatures[0].gene_size
         # Get a list of genes from creatures, and reshape into a 2D array
-        gene_pool = np.array([x.genome.genome for x in creatures]).reshape(
-            5, creatures[0].gene_size*2)
+        gene_pool = np.vstack([x.genome.genome for x in creatures])
         # Generate a random list of genes picked from a list of creatures
         gene_idx_selection = np.random.choice(
-            range(len(gene_pool)), creatures[0].gene_size)
+            range(len(gene_pool)), gene_size)
         # Select genes from parents' gene pool and save in self.genome
-        new_genome = [gene_pool[x] for x in gene_idx_selection]
+        new_genome = np.vstack([gene_pool[x] for x in gene_idx_selection])
+        # Cast all values to int
+        # new_genome = [[int(y) if idx < 4 else y for idx,
+        #                y in enumerate(x)] for x in new_genome]
         self.genome = new_genome
 
     def mutate_genome(self, mutation_probability: float):
@@ -468,9 +483,9 @@ class Genome:
             # If probability is True
             if pr.Prob(mutation_probability):
                 # Generate new gene, store it with the hash
-                gene = self.generate_gene(self.num_int_neuron)
-                self.genome[idx] = gene
-                self.get_gene_hash[idx] = self.get_gene_hash(gene)
+                new_gene = self.generate_gene(self.int_neuron_arr)
+                self.genome[idx] = new_gene
+                self.gene_hash[idx] = self.get_gene_hash(new_gene)
 
     def get_gene_hash(self, neuron):
         hash = hashlib.sha1(neuron).hexdigest()
@@ -505,11 +520,11 @@ class Genome:
 
     def generate_full_genome(self, gene_size: int, num_int_neuron: int):
         # Get internal neuron list
-        int_neuron_arr = self.generate_int_neuron_list(num_int_neuron)
+        self.int_neuron_arr = self.generate_int_neuron_list(num_int_neuron)
         # Generate gene pool for Creature
         gene_array = []
         for i in range(gene_size):
-            gene = self.generate_gene(int_neuron_arr)
+            gene = self.generate_gene(self.int_neuron_arr)
             # Generating gene
             gene_array.append(gene)
             # Getting hash of gene and storing
@@ -543,9 +558,9 @@ class Genome:
 
         # Init neuron states
         # dict.fromkeys(self.arr_action, [])
-        self.action_neuron_state = {key: [] for key in self.arr_action}
+        self.action_neuron_state = {key: [0] for key in self.arr_action}
         # dict.fromkeys(self.arr_int_neurons, [])
-        self.int_neuron_state = {key: [] for key in self.arr_int_neurons}
+        self.int_neuron_state = {key: [0] for key in self.arr_int_neurons}
 
 
 class SensoryNeurons(Enum):
