@@ -1,0 +1,9 @@
+version: '3.3'
+services:
+  gensim:
+    build: .
+    image: gensim:latest
+    env_file: .env
+    restart: 'no'
+    volumes:
+      - './simulations/:/app/simulations/'
