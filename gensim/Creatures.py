@@ -10,20 +10,8 @@ from PyProbs import Probability as pr
 log = logging.getLogger('gensim')
 
 
-def generate_pixels_around(grid_size: int, current_location: tuple):
-    # Getting a nullpoint for the grid_size * grid_size search grid
-    half_grid_size = np.ceil(grid_size/2).astype(int)
-    null_point = [x-half_grid_size for x in current_location]
-    # Creating the pixel locations in the pixels around creature
-    density_loc_arr = []
-    for i in range(1, grid_size + 1):
-        for f in range(1, grid_size + 1):
-            new_loc = (null_point[0] + f, null_point[1] + i)
-            density_loc_arr.append(new_loc)
-    return density_loc_arr
-
-
 class Creature:
+    # [] implement graph img execution when new offspring is created
     def create_graph_img(self, view_img=False):
         genome_hash = self.get_genome_hash()
         save_path = f"{self.env.sim_gendir}{self.id_short}"
@@ -59,6 +47,7 @@ class Creature:
         hash = hashlib.sha1(self.gene_array).hexdigest()
         return str(hash)[:6]
 
+    # [] combined reinit and init so there is no code duplication
     def reinit_offspring(self):
         # General info
         self.id = uuid.uuid4()
@@ -142,16 +131,20 @@ class Oscillator:
 
 
 class Sensory:
+    def generate_pixels_around(self, grid_size: int, current_location: tuple):
+        # Getting a nullpoint for the grid_size * grid_size search grid
+        half_grid_size = np.ceil(grid_size/2).astype(int)
+        null_point = [x-half_grid_size for x in current_location]
+        # Creating the pixel locations in the pixels around creature
+        density_loc_arr = []
+        for i in range(1, grid_size + 1):
+            for f in range(1, grid_size + 1):
+                new_loc = (null_point[0] + f, null_point[1] + i)
+                density_loc_arr.append(new_loc)
+        return density_loc_arr
+
     def map_0_1(self, value: int, max_value: int):
         return value / max_value
-
-    # y = 5
-    #
-    #
-    #       x (4,2)
-    #
-    # # # # # #
-    # 0       x = 5
 
     def x_loc(self):
         x_loc = self.creature.X
@@ -180,17 +173,13 @@ class Sensory:
     def density_around(self):
         grid_size = 5 * 5
         # Creating the pixel locations in 5 pixels around creature
-        density_loc_arr = generate_pixels_around(5, self.creature_loc)
+        density_loc_arr = self.generate_pixels_around(5, self.creature_loc)
         # Calculating the unique number of difference between the total grid and proximity field
         total_arr = density_loc_arr + self.creature.env.occupied_pixels
         density = len(list(set(total_arr))) - \
             len(self.creature.env.occupied_pixels)
         density = grid_size - density - 1  #  -1 for the creature location
         return self.map_0_1(density, grid_size-1)
-
-# [] debug issue:   cc9283fe (<Directions.NORTH: (0, 1)>, 2, 3, 'view_forward', 14.0, -0.6666666666666666)
-#                   there are nobody ahead to north, there are 1 empty pixel to the north wall
-#                   why is the output is -0.67? it should be 1 as there is one pixel ahead only and its empty
 
     def view_forward(self, number_pixel_ahead: int = 3):
         locations_ahead = []
@@ -392,11 +381,7 @@ class NeuronCalculator:
 
     # [ 0.     0.     1.    11.    -3.191]
     # [ 0.     2.     0.     2.    -3.672]
-    # [ 0.     4.     0.     4.    -1.923]
-    # [ 0.    10.     1.    11.     4.421]
-    # [ 0.    10.     1.    11.     0.534]
-    # [ 0.     4.     0.     6.     2.832]
-    # [ 1.    11.     1.    11.     0.817]
+    # ...
     # [ 1.    11.     1.    11.    -2.126]
 
     def calc_tanh(self, inputs):
@@ -488,26 +473,38 @@ class Genome:
                 self.gene_hash[idx] = self.get_gene_hash(new_gene)
 
     def get_gene_hash(self, neuron):
-        hash = hashlib.sha1(neuron).hexdigest()
-        return str(hash)[:6]
+        # hash = hashlib.sha1(neuron).hexdigest()
+        # return str(hash)[:6]
+        for idx, i in enumerate(neuron):
+            if idx == 1:
+                r = i
+            elif idx == 3:
+                g = i
+            elif idx == 4:
+                b = i
 
-    def generate_int_neuron_list(self, num_int_neuron: int):
-        len_action = len(SensoryNeurons)
-        return np.arange(len_action, len_action + num_int_neuron)
+        r_max = self.len_sensory + self.num_int_neuron
+        g_max = self.len_action + self.num_int_neuron
+        b_max = self.weight_min + self.weight_max
+
+        r = np.interp(r, [0, r_max], [0, 256]).astype(int)
+        g = np.interp(g, [0, g_max], [0, 256]).astype(int)
+        b = np.interp(b, [-5, 5], [0, 256]).astype(int)
+        rgb = np.array([r, g, b])
+
+        hexes = [hex(x) for x in rgb]
+        hex_color = ''.join(hexes).replace('0x', '')
+        return hex_color
 
     def generate_gene(self, int_neuron_arr: list):
         # [source_type][from_neuron_id][destination_type][to_neuron_id][synapse_weight]
 
-        # Calculate max lenghts
-        max_sensory_len = len(SensoryNeurons)
-        max_action_len = len(ActionNeurons)
-
         source_type = np.random.randint(2)
         from_neuron_id = np.random.randint(
-            max_sensory_len) if source_type == 0 else int(np.random.choice(int_neuron_arr, 1))
+            self.len_sensory) if source_type == 0 else int(np.random.choice(int_neuron_arr, 1))
         destination_type = np.random.randint(2)
         to_neuron_id = np.random.randint(
-            max_action_len) if destination_type == 0 else int(np.random.choice(int_neuron_arr, 1))
+            self.len_action) if destination_type == 0 else int(np.random.choice(int_neuron_arr, 1))
 
         # Setting synapse weight between 1 and 5, rounding to 3 digits
         synapse_weight = np.random.uniform(low=-5, high=5)
@@ -520,7 +517,8 @@ class Genome:
 
     def generate_full_genome(self, gene_size: int, num_int_neuron: int):
         # Get internal neuron list
-        self.int_neuron_arr = self.generate_int_neuron_list(num_int_neuron)
+        self.int_neuron_arr = np.arange(
+            self.len_action, self.len_action + self.num_int_neuron)
         # Generate gene pool for Creature
         gene_array = []
         for i in range(gene_size):
@@ -535,10 +533,15 @@ class Genome:
         gene_array = gene_array[gene_array[:, 0].argsort()]
         return gene_array
 
-    def __init__(self, gene_size: int, num_int_neuron: int, creature: Creature):
+    def __init__(self, gene_size: int,
+                 num_int_neuron: int,
+                 creature: Creature,
+                 weight_range: int = 5):
         self.creature = creature
         self.num_int_neuron = num_int_neuron
         self.gene_size = gene_size
+        self.weight_min = -weight_range
+        self.weight_max = weight_range
 
         self.gene_hash = []
         self.genome = self.generate_full_genome(

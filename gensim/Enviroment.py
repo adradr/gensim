@@ -36,6 +36,11 @@ num_round:           {num_rounds}/{num_round}"""
 
 class SimEnv:
 
+    # [] enable round based iterating, so generations can be evaluated gradually
+    # [] save animations after each round, so it can be evaulated
+    # [] enable main.py to read an existing env and further process rounds
+    # [] do not limit rounds/generation count, it should be able to be added gradually
+
     def eval_env(self):
         # Store start time
         timer = {"start": time(), "step_start": time(),
@@ -43,13 +48,14 @@ class SimEnv:
 
         # Iterate over enviroment
         for idx_round in range(self.num_rounds):
+            timer["round_start"] = time()
             for idx_step in range(self.num_steps):
+                timer["step_start"] = time()
                 # Calculate step
                 self.eval_step()
                 timer["step"] = round(time() - timer["step_start"], 1)
-                timer["step_start"] = time()
-                timer["round"] = round(time() - timer["round_start"], 1)
                 timer["iter"] = round(time() - timer["start"], 1)
+                timer["round"] = round(time() - timer["round_start"], 1)
                 # Log progress
                 log.debug(
                     f"Iterating progress (step/round/total): {self.num_steps}/{idx_step+1} {timer['step']}s / {self.num_rounds}/{idx_round+1} {timer['round']}s / {timer['iter']}s ---------------------------------")
@@ -57,8 +63,6 @@ class SimEnv:
             self.eval_round()
             log.info(
                 f"Iterating progress: {self.num_rounds}/{idx_round+1} {timer['round']}s / {timer['iter']}s ---------------------------------")
-
-            timer["round_start"] = time()
 
     def eval_round(self):
         log.debug(f"Eval round:{self.num_round}")
