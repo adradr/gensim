@@ -1,4 +1,5 @@
 # GenSim
+[![Docker Image CI](https://github.com/adradr/gensim/actions/workflows/docker-build-push.yml/badge.svg?branch=master)](https://github.com/adradr/gensim/actions/workflows/docker-build-push.yml)
 ## Genetic simulation of evolution
 
 This game would like to create a simulation enviroment for simple genetic evolution. Each creature has multiple input and output neurons for percieving its enviroment and interact within it.
