@@ -41,8 +41,8 @@ jobs:
           push: true
           context: .
           tags: |
-              ${{ steps.vars.outputs.branch }}-${{ steps.vars.outputs.sha_short }}
-              latest
+              ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.branch }}-${{ steps.vars.outputs.sha_short }}
+              ghcr.io/${{ github.repository }}:latest
           platforms: |
               linux/arm64
               linux/amd64
