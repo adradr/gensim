@@ -553,12 +553,10 @@ class Genome:
         self.arr_sensory = [x.value for x in list(SensoryNeurons)]
         self.arr_action = [x.value for x in list(ActionNeurons)]
         self.arr_int_neurons = [
-            x + self.len_sensory for x in np.arange(self.num_int_neuron)]
+            x + self.len_action for x in np.arange(self.num_int_neuron)]
 
         # Init neuron states
-        # dict.fromkeys(self.arr_action, [])
         self.action_neuron_state = {key: [0] for key in self.arr_action}
-        # dict.fromkeys(self.arr_int_neurons, [])
         self.int_neuron_state = {key: [0] for key in self.arr_int_neurons}
 
         # Generate genes
