@@ -56,11 +56,11 @@ class SimEnv:
                 timer["iter"] = round(time() - timer["start"], 1)
                 timer["round"] = round(time() - timer["round_start"], 1)
                 # Log progress
-                log.debug(
+                log.info(
                     f"Iterating progress (step/round/total): {self.num_steps}/{idx_step+1} {timer['step']}s / {self.num_rounds}/{idx_round+1} {timer['round']}s / {timer['iter']}s ---------------------------------")
             # Evaluate generation if num steps reached max
             self.eval_round()
-            log.info(
+            log.warning(
                 f"Iterating progress: {self.num_rounds}/{idx_round+1} {timer['round']}s / {timer['iter']}s ---------------------------------")
 
     def eval_round(self):
@@ -99,6 +99,7 @@ class SimEnv:
                 futures = [executor.submit(threaded_loop)
                            for i in range(self.population_size)]
                 wait(futures)
+                executor.shutdown()
 
         # Single threading
         elif self.multithreading == 1:
@@ -124,6 +125,15 @@ class SimEnv:
             f"Creature array locations - {[(x.X, x.Y) for x in self.creature_array]}")
         log.debug(
             f"Random locations array - {[tuple(x) for x in self.random_locations]}")
+
+        # Generate animation for round
+        # As plt is not thread safe need to stick with manual
+        for img, path in zip(self.imgs, self.img_paths):
+            log.info(f"Saving image: {path}")
+            self.save_plot(path, img)
+        self.generate_animation(self.fps)
+        # Reset img and path arrays
+        self.imgs, self.img_paths = [], []
 
         # Increase round number
         self.num_round += 1
@@ -155,6 +165,7 @@ class SimEnv:
                 futures = [executor.submit(neuron_calc.reset_neuron_states, cr)
                            for cr in self.creature_array]
                 wait(futures)
+                executor.shutdown()
 
         # Single threading
         elif self.multithreading == 1:
@@ -266,7 +277,7 @@ class SimEnv:
         log.debug(f"Saving frame to:{path}")
         plt.close()
 
-    def save_animation(self, img_paths: list[str], path: str, fps: int = 10):
+    def save_animation(self, img_paths: list[str], path: str, fps: int):
         if path.split('.')[-1] == 'mp4':
             kargs = {'quality': 10, 'macro_block_size': None,
                      'ffmpeg_params': ['-s', '800x400']}
@@ -280,16 +291,17 @@ class SimEnv:
         # for filename in set(self.img_paths):
         #     os.remove(filename)
 
-    def generate_animation(self, fps: int = 20):
+    def generate_animation(self, fps: int):
         log.info('Generating simulation animation...')
 
-        # As plt is not thread safe need to stick with manual
-        for img, path in zip(self.imgs, self.img_paths):
-            log.info(f"Saving image: {path}")
-            self.save_plot(path, img)
+        # Get list of paths for frams
+        img_paths = os.listdir(self.sim_subdir)
+        img_paths = [self.sim_subdir + x for x in img_paths]
+        log.info(img_paths)
 
-        self.save_animation(self.img_paths, self.anim_path_mp4, fps)
-        self.save_animation(self.img_paths, self.anim_path_gif, fps)
+        # Save MP4 and GIF
+        self.save_animation(img_paths, self.anim_path_mp4, fps)
+        self.save_animation(img_paths, self.anim_path_gif, fps)
         log.info(f"Saved MP4 animation at {self.anim_path_mp4}")
         log.info(f"Saved GIF animation at {self.anim_path_gif}")
 
@@ -300,7 +312,7 @@ class SimEnv:
                  num_steps: int, num_rounds: int,
                  gene_size: int, num_int_neuron: int,
                  mutation_probability: float, selection_area_width_pct: int, criteria_type: str,
-                 multithreading: int = 1):
+                 multithreading: int = 1, animation_fps=10):
         """Enviroment initialization
 
         Args:
@@ -326,6 +338,7 @@ class SimEnv:
         self.log = pd.DataFrame()
         self.id = uuid.uuid4()
         self.multithreading = multithreading
+        self.fps = animation_fps
         self.img_paths = []
         self.imgs = []
 
@@ -353,10 +366,8 @@ class SimEnv:
                           gene_size=gene_size,
                           num_int_neuron=num_int_neuron)
             cr.genome.action.update_loc()
-            self.creature_array.append(cr)
-
-        def save_cr_genome_img_multi(cr):
             cr.create_graph_img(view_img=False)
+            self.creature_array.append(cr)
 
         # Generating creature multithread
         self.creature_array = []
@@ -366,10 +377,7 @@ class SimEnv:
                 futures = [executor.submit(create_cr_multi, gene_size=gene_size,
                                            num_int_neuron=num_int_neuron) for cr in range(self.population_size)]
                 wait(futures)
-                # Generating creature genome image
-                futures = [executor.submit(save_cr_genome_img_multi, cr)
-                           for cr in self.creature_array]
-                wait(futures)
+                executor.shutdown()
 
         elif self.multithreading == 1:
             for i in range(self.population_size):
@@ -379,16 +387,6 @@ class SimEnv:
                 cr.create_graph_img(view_img=False)
                 cr.genome.action.update_loc()
                 self.creature_array.append(cr)
-
-        # # Putting creatures to a unique random location
-        # self.set_random_locations(population_size=self.population_size)
-        # # Update new locations in creatures
-        # for cr in self.creature_array:
-        #     cr.genome.action.update_loc()
-
-        # # Store occupied pixels
-        # self.occupied_pixels = self.calc_occupied_pixels()
-        # log.debug(f"Occupied pixels:\n{self.occupied_pixels}")
 
         # Initialize population
         self.init_population_locations()
@@ -454,8 +452,8 @@ class SelectionCriteria:
         return self.selection_pixels
 
     def evaluate_survivors(self, creatures: list[Creature]):
-        self.survivor_creatures_arr = []
+        survivor_creatures_arr = []
         for i in creatures:
             if (i.X, i.Y) in self.selection_pixels:
-                self.survivor_creatures_arr.append(i)
-        return self.survivor_creatures_arr
+                survivor_creatures_arr.append(i)
+        return survivor_creatures_arr
