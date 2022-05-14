@@ -30,7 +30,9 @@ if (__name__ == "__main__"):
                                 os.environ['SELECTION_AREA_SIZE']),
                             criteria_type=eval(
                                 os.environ['SELECTION_CRITERIA_TYPE']),
-                            multithreading=int(os.environ['MULTITHREADING_NTHREADS']))
+                            multithreading=int(
+                                os.environ['MULTITHREADING_NTHREADS']),
+                            animation_fps=int(os.environ['ANIMATION_FPS']))
     log.info(f"Enviroment created: {env.id}")
     log.info(f"Disclaimer: Timing is only estimate, rounded and not accurate.")
     # Calculate simulation
@@ -39,7 +41,7 @@ if (__name__ == "__main__"):
 
     # Generate animation
     log.info(f"Generating animation: {env.id}")
-    env.generate_animation(10)
+    # env.generate_animation()
 
     # Saving env object to simulation dir
     save_path = env.sim_dir + 'enviroment.pickle'
