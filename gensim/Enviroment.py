@@ -60,8 +60,6 @@ class SimEnv:
                     f"Iterating progress (step/round/total): {self.num_steps}/{idx_step+1} {timer['step']}s / {self.num_rounds}/{idx_round+1} {timer['round']}s / {timer['iter']}s ---------------------------------")
             # Evaluate generation if num steps reached max
             self.eval_round()
-            log.warning(
-                f"Iterating progress: {self.num_rounds}/{idx_round+1} {timer['round']}s / {timer['iter']}s ---------------------------------")
 
     def eval_round(self):
         log.debug(f"Eval round:{self.num_round}")
