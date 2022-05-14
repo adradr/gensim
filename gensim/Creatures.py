@@ -543,10 +543,6 @@ class Genome:
         self.weight_min = -weight_range
         self.weight_max = weight_range
 
-        self.gene_hash = []
-        self.genome = self.generate_full_genome(
-            gene_size=gene_size, num_int_neuron=num_int_neuron)
-
         # Calculate required info
         self.sensory = Sensory(creature=self.creature)
         self.action = Action(creature=self.creature)
@@ -564,6 +560,11 @@ class Genome:
         self.action_neuron_state = {key: [0] for key in self.arr_action}
         # dict.fromkeys(self.arr_int_neurons, [])
         self.int_neuron_state = {key: [0] for key in self.arr_int_neurons}
+
+        # Generate genes
+        self.gene_hash = []
+        self.genome = self.generate_full_genome(
+            gene_size=gene_size, num_int_neuron=num_int_neuron)
 
 
 class SensoryNeurons(Enum):
