@@ -176,8 +176,7 @@ class SimEnv:
                 neuron_calc.reset_neuron_states(cr)
 
         # Saving image
-        image = self.create_img()
-        self.imgs.append(image)
+        self.imgs.append(self.create_img())
 
         # New method
         path = self.sim_subdir + \
@@ -249,22 +248,27 @@ class SimEnv:
         for i in self.selection_pixels:
             image_selection[i[0], i[1]] = [105, 224, 137]
         self.selection_pixels_img = image_selection
-        # Save image as result.png
-        # filename = self.sim_subdir + str(self.num_step) + '.png'
-        # cv2.imwrite(filename, image)
-        # self.img_arr.append(image)
+
+        # Creating an object to store image with plus data
+        image = {
+            "image": image,
+            "num_round": self.num_round,
+            "num_step": self.num_step
+        }
+
         return image
 
-    def save_plot(self, path: str, image: np.array):
+    def save_plot(self, path: str, image: dict):
         # Plotting single image
         plt.figure(figsize=(10, 5))
-        plt.imshow(image, origin='lower', resample=False, alpha=1)
+        plt.imshow(image["image"], origin='lower', resample=False, alpha=1)
         plt.imshow(self.selection_pixels_img,
                    origin='lower', resample=False, alpha=0.4)
+        # Adding dashboard info to the image
         text_str = get_text(self.id, self.X, self.population_size,
                             self.gene_size, self.num_int_neuron, self.mutation_probability,
-                            self.num_steps, self.num_step,
-                            self.num_rounds, self.num_round)
+                            self.num_steps, image["num_step"],
+                            self.num_rounds, image["num_round"])
         # these are matplotlib.patch.Patch properties
         props = dict(boxstyle='round', facecolor='orange', alpha=1)
         # place a text box in upper left in axes coords
@@ -294,6 +298,8 @@ class SimEnv:
         # Get list of paths for frams
         img_paths = os.listdir(self.sim_subdir)
         img_paths = [self.sim_subdir + x for x in img_paths]
+        img_paths.sort(key=os.path.getctime)
+        [log.info(x) for x in img_paths]
 
         # Save MP4 and GIF
         self.save_animation(img_paths, self.anim_path_mp4, fps)
