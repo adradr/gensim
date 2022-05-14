@@ -129,7 +129,7 @@ class SimEnv:
         # Generate animation for round
         # As plt is not thread safe need to stick with manual
         for img, path in zip(self.imgs, self.img_paths):
-            log.info(f"Saving image: {path}")
+            log.debug(f"Saving image: {path}")
             self.save_plot(path, img)
         self.generate_animation(self.fps)
         # Reset img and path arrays
@@ -255,9 +255,6 @@ class SimEnv:
         # self.img_arr.append(image)
         return image
 
-    def new_method(self, image_selection):
-        image_selection[:, :, -1].fill(1)
-
     def save_plot(self, path: str, image: np.array):
         # Plotting single image
         plt.figure(figsize=(10, 5))
@@ -297,7 +294,6 @@ class SimEnv:
         # Get list of paths for frams
         img_paths = os.listdir(self.sim_subdir)
         img_paths = [self.sim_subdir + x for x in img_paths]
-        log.info(img_paths)
 
         # Save MP4 and GIF
         self.save_animation(img_paths, self.anim_path_mp4, fps)
