@@ -41,7 +41,7 @@ if (__name__ == "__main__"):
 
     # Generate animation
     log.info(f"Generating animation: {env.id}")
-    # env.generate_animation()
+    env.generate_animation(fps=10)
 
     # Saving env object to simulation dir
     save_path = env.sim_dir + 'enviroment.pickle'

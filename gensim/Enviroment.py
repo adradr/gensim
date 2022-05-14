@@ -57,7 +57,7 @@ class SimEnv:
                 timer["round"] = round(time() - timer["round_start"], 1)
                 # Log progress
                 log.info(
-                    f"Iterating progress (step/round/total): {self.num_steps}/{idx_step+1} {timer['step']}s / {self.num_rounds}/{idx_round+1} {timer['round']}s / {timer['iter']}s ---------------------------------")
+                    f"Iterating progress (step/round/total): {self.num_steps}/{idx_step+1} {timer['step']}s / {self.num_rounds}/{idx_round+1} {timer['round']}s / {timer['iter']}s")
             # Evaluate generation if num steps reached max
             self.eval_round()
 
@@ -129,7 +129,7 @@ class SimEnv:
         for img, path in zip(self.imgs, self.img_paths):
             log.debug(f"Saving image: {path}")
             self.save_plot(path, img)
-        self.generate_animation(self.fps)
+        # self.generate_animation(self.fps)
         # Reset img and path arrays
         self.imgs, self.img_paths = [], []
 
@@ -290,7 +290,7 @@ class SimEnv:
         # for filename in set(self.img_paths):
         #     os.remove(filename)
 
-    def generate_animation(self, fps: int):
+    def generate_animation(self, fps: int = 10):
         log.info('Generating simulation animation...')
 
         # Get list of paths for frams
