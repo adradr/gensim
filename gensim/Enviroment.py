@@ -1,3 +1,5 @@
+from gensim.Creatures import *
+from concurrent.futures import ThreadPoolExecutor, wait
 import os
 import datetime
 import logging
@@ -10,9 +12,6 @@ import random
 import copy
 from time import time
 import matplotlib.pyplot as plt
-from concurrent.futures import ThreadPoolExecutor, wait
-
-from gensim.Creatures import *
 
 log = logging.getLogger('gensim')
 
@@ -167,9 +166,13 @@ class SimEnv:
 
         # Saving image
         image = self.create_img()
+        self.imgs.append(image)
+
+        # New method
         path = self.sim_subdir + \
             str(self.num_round) + '_' + str(self.num_step) + '.png'
-        self.save_plot(path, image)
+        self.img_paths.append(path)
+
         # Calculate new occupied pixels
         self.occupied_pixels = self.calc_occupied_pixels()
         log.debug(
@@ -261,27 +264,32 @@ class SimEnv:
                  fontdict={"family": "monospace"})
         plt.savefig(path, dpi=100, facecolor='white', bbox_inches='tight')
         log.debug(f"Saving frame to:{path}")
-        self.img_paths.append(path)
         plt.close()
 
-    def save_animation(self, path: str, fps: int = 10):
+    def save_animation(self, img_paths: list[str], path: str, fps: int = 10):
         if path.split('.')[-1] == 'mp4':
             kargs = {'quality': 10, 'macro_block_size': None,
                      'ffmpeg_params': ['-s', '800x400']}
         if path.split('.')[-1] == 'gif':
             kargs = {}
         with imageio.get_writer(path, fps=fps, **kargs) as writer:
-            for filename in self.img_paths:
+            for filename in img_paths:
                 image = imageio.imread(filename)
                 writer.append_data(image)
         # # Remove files
         # for filename in set(self.img_paths):
         #     os.remove(filename)
 
-    def generate_animation(self, fps: int = 10):
+    def generate_animation(self, fps: int = 20):
         log.info('Generating simulation animation...')
-        self.save_animation(self.anim_path_mp4, fps)
-        self.save_animation(self.anim_path_gif, fps)
+
+        # As plt is not thread safe need to stick with manual
+        for img, path in zip(self.imgs, self.img_paths):
+            log.info(f"Saving image: {path}")
+            self.save_plot(path, img)
+
+        self.save_animation(self.img_paths, self.anim_path_mp4, fps)
+        self.save_animation(self.img_paths, self.anim_path_gif, fps)
         log.info(f"Saved MP4 animation at {self.anim_path_mp4}")
         log.info(f"Saved GIF animation at {self.anim_path_gif}")
 
@@ -319,6 +327,7 @@ class SimEnv:
         self.id = uuid.uuid4()
         self.multithreading = multithreading
         self.img_paths = []
+        self.imgs = []
 
         # Create folder for simulation
         now = datetime.datetime.now()
