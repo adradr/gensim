@@ -4,15 +4,14 @@ FROM python:3.9.12-buster
 
 RUN apt update
 RUN apt install -y ffmpeg
-RUN apt install tzdata -y 
+RUN apt install -y graphviz
+RUN apt install -y tzdata
 ENV TZ="Europe/Budapest"
-
-WORKDIR app/
 
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
-COPY gensim/ ./gensim
-COPY main.py .
+COPY gensim/ gensim
+COPY main.py main.py
 
 CMD ["python3", "main.py"]

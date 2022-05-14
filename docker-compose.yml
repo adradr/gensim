@@ -6,4 +6,4 @@ services:
     env_file: .env
     restart: 'no'
     volumes:
-      - './simulations:/app/simulations'
+      - './simulations:/simulations/'
