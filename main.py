@@ -2,19 +2,20 @@ from gensim import *
 from gensim.Enviroment import SelectionCriterias
 import pickle
 import os
-
-from dotenv import load_dotenv
-try:
-    load_dotenv('.env')
-except:
-    print('No enviroment file found, will default for os.environ')
-
 import logging
+from dotenv import load_dotenv, dotenv_values
+
+# Preconfiguration
+config = dotenv_values('.env')
 log = logging.getLogger('gensim')
 logging.basicConfig(format="%(asctime)s - %(message)s")
 log.setLevel(eval(os.environ['LOGGING_LEVEL']))
+for conf in config.items():
+    log.info(conf)
 
+# Main func
 if (__name__ == "__main__"):
+
     # Create enviroment
     log.info(f"Creating enviroment...")
     env = Enviroment.SimEnv(size=int(os.environ['MAP_SIZE']),

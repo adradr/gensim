@@ -13,5 +13,6 @@ RUN pip3 install -r requirements.txt
 
 COPY gensim/ gensim
 COPY main.py main.py
+COPY .env .env
 
 CMD ["python3", "main.py"]
