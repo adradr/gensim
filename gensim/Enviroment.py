@@ -299,7 +299,6 @@ class SimEnv:
         img_paths = os.listdir(self.sim_subdir)
         img_paths = [self.sim_subdir + x for x in img_paths]
         img_paths.sort(key=os.path.getctime)
-        [log.info(x) for x in img_paths]
 
         # Save MP4 and GIF
         self.save_animation(img_paths, self.anim_path_mp4, fps)
